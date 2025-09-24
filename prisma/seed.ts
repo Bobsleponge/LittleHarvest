@@ -74,17 +74,17 @@ async function main() {
     prisma.portionSize.upsert({
       where: { name: '130g' },
       update: {},
-      create: { name: '130g', grams: 130 },
+      create: { name: '130g', measurement: '130g' },
     }),
     prisma.portionSize.upsert({
       where: { name: '160g' },
       update: {},
-      create: { name: '160g', grams: 160 },
+      create: { name: '160g', measurement: '160g' },
     }),
     prisma.portionSize.upsert({
       where: { name: '220g' },
       update: {},
-      create: { name: '220g', grams: 220 },
+      create: { name: '220g', measurement: '220g' },
     }),
   ])
 
@@ -204,7 +204,8 @@ async function main() {
   for (const product of products) {
     for (const portionSize of portionSizes) {
       const basePrice = 45 // Base price in ZAR
-      const sizeMultiplier = portionSize.grams / 130 // 130g is base size
+      const grams = parseInt(portionSize.measurement.replace('g', '')) // Extract grams from measurement
+      const sizeMultiplier = grams / 130 // 130g is base size
       const price = Math.round(basePrice * sizeMultiplier)
       
       prices.push(

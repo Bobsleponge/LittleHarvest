@@ -23,7 +23,7 @@ interface OrderConfirmationProps {
     id: string
     orderNumber: string
     status: string
-    paymentStatus: string
+    paymentStatus: string | null
     totalZar: number
     createdAt: string
     deliveryDate?: string
@@ -48,7 +48,7 @@ interface OrderConfirmationProps {
       }
       portionSize: {
         name: string
-        grams: number
+        measurement: string
       }
     }>
     notes?: string
@@ -223,7 +223,7 @@ export function OrderConfirmation({ order }: OrderConfirmationProps) {
                       <div className="flex-1">
                         <h4 className="font-semibold">{item.product.name}</h4>
                         <p className="text-sm text-muted-foreground">
-                          {item.portionSize.name} ({item.portionSize.grams}g)
+                          {item.portionSize.name} ({item.portionSize.measurement})
                         </p>
                         <div className="flex gap-2 mt-1">
                           <Badge variant="outline" className="text-xs">
@@ -280,7 +280,7 @@ export function OrderConfirmation({ order }: OrderConfirmationProps) {
                     variant={order.paymentStatus === 'PENDING' ? 'secondary' : 
                            order.paymentStatus === 'PAID' ? 'default' : 'destructive'}
                   >
-                    {order.paymentStatus}
+                    {order.paymentStatus || 'UNKNOWN'}
                   </Badge>
                 </div>
                 <div className="flex justify-between">

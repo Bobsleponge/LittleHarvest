@@ -18,12 +18,17 @@ export const authOptions: NextAuthOptions = {
         },
         async authorize(credentials) {
           if (!credentials?.email) {
+            console.log('Dev-login: No email provided')
             return null
           }
 
+          console.log('Dev-login: Looking up user with email:', credentials.email)
+          
           const user = await prisma.user.findUnique({
             where: { email: credentials.email },
           })
+
+          console.log('Dev-login: Found user:', user)
 
           if (user) {
             return {
@@ -56,11 +61,16 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     session: async ({ session, token }) => {
+      console.log('Session callback - token:', token)
+      console.log('Session callback - session:', session)
+      
       if (session?.user && token?.sub) {
         const user = await prisma.user.findUnique({
           where: { id: token.sub },
           include: { profile: true },
         })
+        
+        console.log('Session callback - found user:', user)
         
         if (user) {
           session.user.id = user.id
@@ -71,9 +81,13 @@ export const authOptions: NextAuthOptions = {
       return session
     },
     jwt: async ({ user, token }) => {
+      console.log('JWT callback - user:', user)
+      console.log('JWT callback - token:', token)
+      
       if (user) {
         token.role = user.role
         token.id = user.id
+        console.log('JWT callback - updated token:', token)
       }
       return token
     },

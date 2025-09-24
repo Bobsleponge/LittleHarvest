@@ -1,27 +1,40 @@
-// Simple in-memory cache for development
+// Enhanced in-memory cache with LRU eviction and compression
 // In production, consider using Redis or similar
 
 interface CacheItem<T> {
   data: T
   timestamp: number
   ttl: number
+  accessCount: number
+  lastAccessed: number
 }
 
 class MemoryCache {
   private cache = new Map<string, CacheItem<any>>()
+  private maxSize = 1000 // Maximum number of cache entries
+  private compressionThreshold = 1024 // Compress items larger than 1KB
 
   set<T>(key: string, data: T, ttlMs: number = 5 * 60 * 1000): void {
+    // Compress large data
+    const processedData = this.shouldCompress(data) ? this.compress(data) : data
+    
     this.cache.set(key, {
-      data,
+      data: processedData,
       timestamp: Date.now(),
       ttl: ttlMs,
+      accessCount: 0,
+      lastAccessed: Date.now(),
     })
+
+    // Evict if cache is too large
+    if (this.cache.size > this.maxSize) {
+      this.evictLRU()
+    }
   }
 
   get<T>(key: string): T | null {
     const item = this.cache.get(key)
     if (!item) {
-      // Record cache miss
       this.recordCacheHit(false, key)
       return null
     }
@@ -29,14 +42,19 @@ class MemoryCache {
     const now = Date.now()
     if (now - item.timestamp > item.ttl) {
       this.cache.delete(key)
-      // Record cache miss (expired)
       this.recordCacheHit(false, key)
       return null
     }
 
+    // Update access statistics
+    item.accessCount++
+    item.lastAccessed = now
+
     // Record cache hit
     this.recordCacheHit(true, key)
-    return item.data
+    
+    // Decompress if needed
+    return this.isCompressed(item.data) ? this.decompress(item.data) : item.data
   }
 
   delete(key: string): void {
@@ -55,6 +73,56 @@ class MemoryCache {
         this.cache.delete(key)
       }
     }
+  }
+
+  // Get cache statistics
+  getStats() {
+    const entries = Array.from(this.cache.values())
+    return {
+      size: this.cache.size,
+      maxSize: this.maxSize,
+      hitRate: entries.reduce((acc, item) => acc + item.accessCount, 0) / Math.max(entries.length, 1),
+      memoryUsage: this.estimateMemoryUsage(),
+    }
+  }
+
+  // Evict least recently used items
+  private evictLRU(): void {
+    const entries = Array.from(this.cache.entries())
+    entries.sort((a, b) => a[1].lastAccessed - b[1].lastAccessed)
+    
+    // Remove 10% of least recently used items
+    const toRemove = Math.ceil(entries.length * 0.1)
+    for (let i = 0; i < toRemove; i++) {
+      this.cache.delete(entries[i][0])
+    }
+  }
+
+  // Simple compression for large objects
+  private shouldCompress(data: any): boolean {
+    const size = JSON.stringify(data).length
+    return size > this.compressionThreshold
+  }
+
+  private compress(data: any): string {
+    return JSON.stringify(data)
+  }
+
+  private isCompressed(data: any): boolean {
+    return typeof data === 'string' && data.startsWith('{')
+  }
+
+  private decompress<T>(data: string): T {
+    return JSON.parse(data)
+  }
+
+  private estimateMemoryUsage(): number {
+    let totalSize = 0
+    for (const [key, value] of this.cache.entries()) {
+      totalSize += key.length * 2 // UTF-16
+      totalSize += JSON.stringify(value).length * 2
+    }
+    return totalSize
   }
 
   // Record cache hit/miss for metrics

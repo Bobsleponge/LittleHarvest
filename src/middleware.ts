@@ -10,7 +10,9 @@ export default withAuth(
     // Protect admin routes
     if (pathname.startsWith('/admin')) {
       if (!token) {
-        return NextResponse.redirect(new URL('/auth/signin', req.url))
+        // Redirect to dev-login in development, auth/signin in production
+        const signInUrl = process.env.NODE_ENV === 'development' ? '/dev-login' : '/auth/signin'
+        return NextResponse.redirect(new URL(signInUrl, req.url))
       }
       
       if (token.role !== 'ADMIN') {

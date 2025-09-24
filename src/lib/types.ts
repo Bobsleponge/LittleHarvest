@@ -76,7 +76,6 @@ export interface PortionSize {
   name: string
   description?: string
   measurement?: string
-  grams?: number
   createdAt: Date
   updatedAt: Date
 }

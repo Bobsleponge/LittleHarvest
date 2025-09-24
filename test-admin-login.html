@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Admin Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Admin Login Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Test Dev-Login API</h3>
+        <button onclick="testDevLoginAPI()">Test API</button>
+        <div id="api-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. Test NextAuth SignIn</h3>
+        <button onclick="testNextAuthSignIn()">Test SignIn</button>
+        <div id="signin-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. Test Session</h3>
+        <button onclick="testSession()">Test Session</button>
+        <div id="session-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>4. Test Admin Redirect</h3>
+        <button onclick="testAdminRedirect()">Test Redirect</button>
+        <div id="redirect-result" class="result"></div>
+    </div>
+
+    <script>
+        async function testDevLoginAPI() {
+            const resultDiv = document.getElementById('api-result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                const response = await fetch('/api/dev-login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email: 'admin@tinytastes.co.za' }),
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.innerHTML = `<div class="success">✅ API Success: ${JSON.stringify(data)}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ API Error: ${JSON.stringify(data)}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Network Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function testNextAuthSignIn() {
+            const resultDiv = document.getElementById('signin-result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                // This would need to be done through the actual NextAuth flow
+                resultDiv.innerHTML = `<div class="error">❌ This test requires the actual NextAuth flow</div>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function testSession() {
+            const resultDiv = document.getElementById('session-result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                const response = await fetch('/api/test-session');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="success">✅ Session: ${JSON.stringify(data)}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Session Error: ${JSON.stringify(data)}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Network Error: ${error.message}</div>`;
+            }
+        }
+        
+        function testAdminRedirect() {
+            const resultDiv = document.getElementById('redirect-result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                // Test if we can access the admin page
+                fetch('/admin')
+                    .then(response => {
+                        if (response.status === 200) {
+                            resultDiv.innerHTML = `<div class="success">✅ Admin page accessible</div>`;
+                        } else if (response.status === 302 || response.status === 307) {
+                            resultDiv.innerHTML = `<div class="error">❌ Admin page redirects (expected if not logged in)</div>`;
+                        } else {
+                            resultDiv.innerHTML = `<div class="error">❌ Admin page error: ${response.status}</div>`;
+                        }
+                    })
+                    .catch(error => {
+                        resultDiv.innerHTML = `<div class="error">❌ Network Error: ${error.message}</div>`;
+                    });
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

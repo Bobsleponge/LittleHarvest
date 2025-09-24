@@ -266,7 +266,7 @@ export async function getLowStockAlerts(threshold: number = 5): Promise<any[]> {
           select: {
             id: true,
             name: true,
-            grams: true
+            measurement: true
           }
         }
       }

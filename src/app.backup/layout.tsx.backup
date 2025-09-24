@@ -1,0 +1,43 @@
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
+import { Providers } from '@/components/providers'
+import { Header } from '@/components/header'
+import { Footer } from '@/components/footer'
+
+const inter = Inter({ subsets: ['latin'] })
+
+export const metadata: Metadata = {
+  title: 'Tiny Tastes - Fresh Baby Food Delivered',
+  description: 'Nutritious, fresh baby food made with love and delivered to your door',
+  keywords: 'baby food, organic, fresh, delivery, nutrition, South Africa',
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>
+        <Providers>
+            <div className="min-h-screen flex flex-col animated-gradient relative">
+              {/* Background Elements */}
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-teal-500/5" />
+              <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-300/10 rounded-full blur-3xl float" />
+              <div className="absolute bottom-20 right-10 w-96 h-96 bg-teal-300/10 rounded-full blur-3xl float" style={{ animationDelay: '2s' }} />
+              
+              <div className="relative z-10 flex flex-col min-h-screen">
+                <Header />
+                <main className="flex-1">
+                  {children}
+                </main>
+                <Footer />
+              </div>
+            </div>
+          </Providers>
+      </body>
+    </html>
+  )
+}
