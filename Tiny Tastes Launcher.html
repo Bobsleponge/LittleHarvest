@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tiny Tastes - Desktop Launcher</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        .logo {
+            font-size: 3em;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.2em;
+            margin-bottom: 30px;
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .info h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .info p {
+            margin: 5px 0;
+            color: #666;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .links {
+            margin-top: 30px;
+        }
+        
+        .links a {
+            color: #667eea;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+        
+        .links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🍼 Tiny Tastes</div>
+        <div class="subtitle">Fresh Baby Food Made with Love</div>
+        
+        <div class="info">
+            <h3>🚀 Quick Start Options:</h3>
+            <p><strong>Option 1:</strong> Double-click "Tiny Tastes Launcher.bat"</p>
+            <p><strong>Option 2:</strong> Double-click "Tiny Tastes Launcher.ps1"</p>
+            <p><strong>Option 3:</strong> Double-click "Tiny Tastes Launcher.vbs"</p>
+            <p><strong>Option 4:</strong> Run: <code>npm run setup</code> then <code>npm run dev</code></p>
+        </div>
+        
+        <button class="button" onclick="checkStatus()">🔍 Check Application Status</button>
+        <button class="button" onclick="openApp()">🌐 Open Application</button>
+        
+        <div id="status" class="status" style="display: none;"></div>
+        
+        <div class="links">
+            <a href="http://localhost:3000" target="_blank">🌐 Application</a>
+            <a href="http://localhost:3000/dev-login" target="_blank">🔐 Quick Login</a>
+            <a href="http://localhost:3000/admin" target="_blank">👨‍💼 Admin Panel</a>
+        </div>
+        
+        <div class="info">
+            <h3>📋 Test Accounts:</h3>
+            <p><strong>Admin:</strong> admin@tinytastes.co.za</p>
+            <p><strong>Customer:</strong> customer@example.com</p>
+        </div>
+    </div>
+
+    <script>
+        function checkStatus() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.style.display = 'block';
+            statusDiv.className = 'status';
+            statusDiv.innerHTML = '🔄 Checking application status...';
+            
+            // Try to fetch the health endpoint
+            fetch('http://localhost:3000/api/health')
+                .then(response => {
+                    if (response.ok) {
+                        statusDiv.className = 'status success';
+                        statusDiv.innerHTML = '✅ Application is running! Ready to use.';
+                    } else {
+                        statusDiv.className = 'status error';
+                        statusDiv.innerHTML = '⚠️ Application responded but may have issues.';
+                    }
+                })
+                .catch(error => {
+                    statusDiv.className = 'status error';
+                    statusDiv.innerHTML = '❌ Application is not running. Please start it first.';
+                });
+        }
+        
+        function openApp() {
+            window.open('http://localhost:3000', '_blank');
+        }
+        
+        // Auto-check status when page loads
+        window.onload = function() {
+            setTimeout(checkStatus, 1000);
+        };
+    </script>
+</body>
+</html>
