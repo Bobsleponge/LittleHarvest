@@ -355,6 +355,7 @@ export default function AdminCustomersPage() {
             </div>
           </div>
         </div>
+      </div>
     </AdminLayout>
   )
 }

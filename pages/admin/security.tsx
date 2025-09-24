@@ -349,6 +349,7 @@ export default function AdminSecurityPage() {
             </div>
           </div>
         </div>
+      </div>
     </AdminLayout>
   )
 }

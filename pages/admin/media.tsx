@@ -294,6 +294,7 @@ export default function AdminMediaPage() {
             </p>
           </div>
         </div>
+      </div>
     </AdminLayout>
   )
 }

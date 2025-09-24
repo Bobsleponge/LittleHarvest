@@ -358,6 +358,7 @@ export default function AdminDatabasePage() {
             </div>
           </div>
         </div>
+      </div>
     </AdminLayout>
   )
 }

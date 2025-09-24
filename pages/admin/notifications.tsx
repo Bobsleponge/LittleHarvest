@@ -375,6 +375,7 @@ export default function AdminNotificationsPage() {
             </div>
           </div>
         </div>
+      </div>
     </AdminLayout>
   )
 }

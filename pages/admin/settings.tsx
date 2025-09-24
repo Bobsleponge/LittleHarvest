@@ -433,6 +433,6 @@ export default function AdminSettingsPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   )
 }

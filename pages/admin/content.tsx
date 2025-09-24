@@ -357,6 +357,7 @@ export default function AdminContentPage() {
             </div>
           </div>
         </div>
+      </div>
     </AdminLayout>
   )
 }

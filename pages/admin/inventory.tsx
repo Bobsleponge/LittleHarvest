@@ -389,6 +389,7 @@ export default function AdminInventoryPage() {
             </div>
           </div>
         </div>
+      </div>
     </AdminLayout>
   )
 }
