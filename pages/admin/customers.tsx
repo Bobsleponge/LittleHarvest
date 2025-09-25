@@ -2,6 +2,16 @@ import { useState } from 'react'
 import Link from 'next/link'
 import AdminLayout from '../../components/admin/admin-layout'
 
+// Utility function to format dates consistently (avoiding hydration mismatch)
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric'
+  })
+}
+
 interface Customer {
   id: string
   name: string
@@ -248,7 +258,7 @@ export default function AdminCustomersPage() {
                       <div>
                         <div className="text-sm font-medium text-gray-900">{customer.name}</div>
                         <div className="text-sm text-gray-500">
-                          Joined {new Date(customer.joinDate).toLocaleDateString()}
+                          Joined {formatDate(customer.joinDate)}
                         </div>
                       </div>
                     </td>
@@ -268,7 +278,7 @@ export default function AdminCustomersPage() {
                       <div>
                         <div className="text-sm font-medium text-gray-900">{customer.totalOrders}</div>
                         <div className="text-sm text-gray-500">
-                          Last: {new Date(customer.lastOrderDate).toLocaleDateString()}
+                          Last: {formatDate(customer.lastOrderDate)}
                         </div>
                       </div>
                     </td>
@@ -346,7 +356,7 @@ export default function AdminCustomersPage() {
                     <div>
                       <p className="font-medium text-gray-900">{customer.name}</p>
                       <p className="text-sm text-gray-600">
-                        Last order: {new Date(customer.lastOrderDate).toLocaleDateString()}
+                        Last order: {formatDate(customer.lastOrderDate)}
                       </p>
                     </div>
                     <span className="text-sm text-gray-500">R{customer.totalSpent}</span>
