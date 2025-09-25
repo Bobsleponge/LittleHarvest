@@ -181,7 +181,6 @@ export default function AdminOrdersPage() {
     }
   }
 
-
   return (
     <AdminLayout>
       <div className="container mx-auto px-4 py-8">
@@ -483,7 +482,7 @@ export default function AdminOrdersPage() {
         </div>
 
         {/* Empty State */}
-        {filteredOrders.length === 0 && (
+        {!isLoading && filteredOrders.length === 0 && (
           <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
             <div className="text-6xl mb-4">📦</div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No orders found</h3>
