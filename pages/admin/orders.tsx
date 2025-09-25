@@ -2,6 +2,16 @@ import { useState } from 'react'
 import Link from 'next/link'
 import AdminLayout from '../../components/admin/admin-layout'
 
+// Utility function to format dates consistently (avoiding hydration mismatch)
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric'
+  })
+}
+
 interface Order {
   id: string
   orderNumber: string
@@ -277,7 +287,7 @@ export default function AdminOrdersPage() {
                       {order.customerName} • {order.customerEmail}
                     </p>
                     <p className="text-sm text-gray-500">
-                      Placed on {new Date(order.date).toLocaleDateString()}
+                      Placed on {formatDate(order.date)}
                     </p>
                   </div>
                   <div className="text-right">
@@ -317,7 +327,7 @@ export default function AdminOrdersPage() {
                   <div>
                     <h4 className="font-medium text-gray-900 mb-2">Delivery Schedule</h4>
                     <p className="text-sm text-gray-600">
-                      {new Date(order.deliveryDate).toLocaleDateString()} - {order.deliveryTime}
+                      {formatDate(order.deliveryDate)} - {order.deliveryTime}
                     </p>
                   </div>
                   <div>
