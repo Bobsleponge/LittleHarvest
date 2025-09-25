@@ -15,6 +15,9 @@ export function Header() {
             <Link href="/products" className="text-gray-600 hover:text-gray-800 font-semibold">
               Products
             </Link>
+            <Link href="/order" className="text-gray-600 hover:text-gray-800 font-semibold">
+              Order Now
+            </Link>
             <Link href="/cart" className="text-gray-600 hover:text-gray-800 font-semibold">
               Cart
             </Link>

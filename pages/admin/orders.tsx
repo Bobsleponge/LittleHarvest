@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import AdminLayout from '../../components/admin/admin-layout'
 
@@ -34,79 +34,51 @@ interface Order {
 }
 
 export default function AdminOrdersPage() {
-  const [orders] = useState<Order[]>([
-    {
-      id: '1',
-      orderNumber: 'TT-2024-001',
-      customerName: 'Sarah Johnson',
-      customerEmail: 'sarah@example.com',
-      date: '2024-01-15',
-      status: 'delivered',
-      total: 132,
-      items: [
-        { id: '1', name: 'Organic Apple Puree', quantity: 2, price: 45, image: '🍎' },
-        { id: '2', name: 'Sweet Potato Mash', quantity: 1, price: 42, image: '🍠' }
-      ],
-      deliveryAddress: '123 Main St, Cape Town, 8001',
-      deliveryDate: '2024-01-16',
-      deliveryTime: 'morning',
-      paymentMethod: 'card'
-    },
-    {
-      id: '2',
-      orderNumber: 'TT-2024-002',
-      customerName: 'Mike Chen',
-      customerEmail: 'mike@example.com',
-      date: '2024-01-20',
-      status: 'shipped',
-      total: 89,
-      items: [
-        { id: '3', name: 'Banana & Oatmeal', quantity: 1, price: 48, image: '🍌' },
-        { id: '4', name: 'Carrot & Pea Mix', quantity: 1, price: 44, image: '🥕' }
-      ],
-      deliveryAddress: '456 Oak Ave, Cape Town, 8002',
-      deliveryDate: '2024-01-22',
-      deliveryTime: 'afternoon',
-      paymentMethod: 'cash'
-    },
-    {
-      id: '3',
-      orderNumber: 'TT-2024-003',
-      customerName: 'Emma Davis',
-      customerEmail: 'emma@example.com',
-      date: '2024-01-25',
-      status: 'processing',
-      total: 156,
-      items: [
-        { id: '5', name: 'Chicken & Rice', quantity: 2, price: 52, image: '🍗' },
-        { id: '6', name: 'Mixed Berry Blend', quantity: 1, price: 46, image: '🫐' }
-      ],
-      deliveryAddress: '789 Pine St, Cape Town, 8003',
-      deliveryDate: '2024-01-27',
-      deliveryTime: 'evening',
-      paymentMethod: 'card'
-    },
-    {
-      id: '4',
-      orderNumber: 'TT-2024-004',
-      customerName: 'David Wilson',
-      customerEmail: 'david@example.com',
-      date: '2024-01-28',
-      status: 'pending',
-      total: 94,
-      items: [
-        { id: '1', name: 'Organic Apple Puree', quantity: 1, price: 45, image: '🍎' },
-        { id: '3', name: 'Banana & Oatmeal', quantity: 1, price: 48, image: '🍌' }
-      ],
-      deliveryAddress: '321 Elm St, Cape Town, 8004',
-      deliveryDate: '2024-01-30',
-      deliveryTime: 'morning',
-      paymentMethod: 'card'
-    }
-  ])
+  const [orders, setOrders] = useState<Order[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    fetchOrders()
+  }, [])
+
+  const fetchOrders = async () => {
+    try {
+      const response = await fetch('/api/orders')
+      const data = await response.json()
+      setOrders(data)
+    } catch (error) {
+      console.error('Error fetching orders:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      if (response.ok) {
+        // Update the order in the local state
+        setOrders(orders.map(order =>
+          order.id === orderId ? { ...order, status: newStatus as any } : order
+        ))
+      } else {
+        alert('Failed to update order status')
+      }
+    } catch (error) {
+      console.error('Error updating order status:', error)
+      alert('Failed to update order status')
+    }
+  }
 
   const filteredOrders = orders.filter(order => {
     const matchesFilter = filter === 'all' || order.status === filter
@@ -139,10 +111,6 @@ export default function AdminOrdersPage() {
     }
   }
 
-  const updateOrderStatus = (orderId: string, newStatus: string) => {
-    // In a real app, this would make an API call
-    console.log(`Updating order ${orderId} to ${newStatus}`)
-  }
 
   return (
     <AdminLayout>
@@ -274,7 +242,17 @@ export default function AdminOrdersPage() {
 
         {/* Orders List */}
         <div className="space-y-6">
-          {filteredOrders.map((order) => (
+          {isLoading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading orders...</p>
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No orders found</p>
+            </div>
+          ) : (
+            filteredOrders.map((order) => (
             <div key={order.id} className="bg-white rounded-lg shadow-sm border overflow-hidden">
               {/* Order Header */}
               <div className="p-6 border-b bg-gray-50">
@@ -378,7 +356,8 @@ export default function AdminOrdersPage() {
                 </div>
               </div>
             </div>
-          ))}
+            ))
+          )}
         </div>
 
         {/* Empty State */}
