@@ -39,6 +39,8 @@ export default function AdminOrdersPage() {
 
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([])
+  const [showBulkActions, setShowBulkActions] = useState(false)
 
   useEffect(() => {
     fetchOrders()
@@ -78,6 +80,74 @@ export default function AdminOrdersPage() {
       console.error('Error updating order status:', error)
       alert('Failed to update order status')
     }
+  }
+
+  const handleSelectOrder = (orderId: string) => {
+    setSelectedOrders(prev => 
+      prev.includes(orderId) 
+        ? prev.filter(id => id !== orderId)
+        : [...prev, orderId]
+    )
+  }
+
+  const handleSelectAll = () => {
+    if (selectedOrders.length === filteredOrders.length) {
+      setSelectedOrders([])
+    } else {
+      setSelectedOrders(filteredOrders.map(order => order.id))
+    }
+  }
+
+  const handleBulkStatusUpdate = async (newStatus: string) => {
+    try {
+      const promises = selectedOrders.map(orderId => 
+        fetch(`/api/orders/${orderId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status: newStatus }),
+        })
+      )
+
+      await Promise.all(promises)
+      
+      // Update local state
+      setOrders(orders.map(order =>
+        selectedOrders.includes(order.id) 
+          ? { ...order, status: newStatus as any }
+          : order
+      ))
+      
+      setSelectedOrders([])
+      setShowBulkActions(false)
+    } catch (error) {
+      console.error('Error updating bulk orders:', error)
+      alert('Failed to update some orders')
+    }
+  }
+
+  const exportOrders = () => {
+    const csvContent = [
+      ['Order Number', 'Customer Name', 'Email', 'Date', 'Status', 'Total', 'Items'],
+      ...filteredOrders.map(order => [
+        order.orderNumber,
+        order.customerName,
+        order.customerEmail,
+        order.date,
+        order.status,
+        order.total,
+        order.items.map(item => `${item.name} (${item.quantity})`).join('; ')
+      ])
+    ].map(row => row.join(',')).join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `orders-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    window.URL.revokeObjectURL(url)
   }
 
   const filteredOrders = orders.filter(order => {
@@ -131,12 +201,20 @@ export default function AdminOrdersPage() {
             <p className="text-gray-600">Manage customer orders and deliveries</p>
           </div>
           <div className="flex space-x-3">
-            <button className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors">
+            <button 
+              onClick={exportOrders}
+              className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+            >
               Export Orders
             </button>
-            <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors">
-              Process Orders
-            </button>
+            {selectedOrders.length > 0 && (
+              <button 
+                onClick={() => setShowBulkActions(!showBulkActions)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              >
+                Bulk Actions ({selectedOrders.length})
+              </button>
+            )}
           </div>
         </div>
 
@@ -240,6 +318,43 @@ export default function AdminOrdersPage() {
           </div>
         </div>
 
+        {/* Bulk Actions */}
+        {showBulkActions && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <span className="text-blue-800 font-medium">
+                {selectedOrders.length} order{selectedOrders.length !== 1 ? 's' : ''} selected
+              </span>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => handleBulkStatusUpdate('processing')}
+                  className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                >
+                  Mark as Processing
+                </button>
+                <button
+                  onClick={() => handleBulkStatusUpdate('shipped')}
+                  className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700"
+                >
+                  Mark as Shipped
+                </button>
+                <button
+                  onClick={() => handleBulkStatusUpdate('delivered')}
+                  className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                >
+                  Mark as Delivered
+                </button>
+                <button
+                  onClick={() => setShowBulkActions(false)}
+                  className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Orders List */}
         <div className="space-y-6">
           {isLoading ? (
@@ -257,7 +372,14 @@ export default function AdminOrdersPage() {
               {/* Order Header */}
               <div className="p-6 border-b bg-gray-50">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedOrders.includes(order.id)}
+                      onChange={() => handleSelectOrder(order.id)}
+                      className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                    />
+                    <div>
                     <h3 className="text-lg font-semibold text-gray-900">
                       Order #{order.orderNumber}
                     </h3>

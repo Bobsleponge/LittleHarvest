@@ -26,6 +26,8 @@ export default function OrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
+  const [errors, setErrors] = useState<{[key: string]: string}>({})
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false)
 
   // Form data
   const [formData, setFormData] = useState({
@@ -86,9 +88,51 @@ export default function OrderPage() {
     return cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0)
   }
 
+  const validateForm = () => {
+    const newErrors: {[key: string]: string} = {}
+
+    if (!formData.customerName.trim()) {
+      newErrors.customerName = 'Name is required'
+    }
+
+    if (!formData.customerEmail.trim()) {
+      newErrors.customerEmail = 'Email is required'
+    } else if (!/\S+@\S+\.\S+/.test(formData.customerEmail)) {
+      newErrors.customerEmail = 'Please enter a valid email address'
+    }
+
+    if (!formData.deliveryAddress.trim()) {
+      newErrors.deliveryAddress = 'Delivery address is required'
+    }
+
+    if (!formData.deliveryDate) {
+      newErrors.deliveryDate = 'Delivery date is required'
+    } else {
+      const selectedDate = new Date(formData.deliveryDate)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (selectedDate < today) {
+        newErrors.deliveryDate = 'Delivery date cannot be in the past'
+      }
+    }
+
+    if (cart.length === 0) {
+      newErrors.cart = 'Please add at least one item to your cart'
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!validateForm()) {
+      return
+    }
+
     setIsSubmitting(true)
+    setErrors({})
 
     try {
       const orderData = {
@@ -113,25 +157,43 @@ export default function OrderPage() {
       if (response.ok) {
         const result = await response.json()
         setOrderNumber(result.orderNumber)
-        setOrderSuccess(true)
-        setCart([])
-        setFormData({
-          customerName: '',
-          customerEmail: '',
-          deliveryAddress: '',
-          deliveryDate: '',
-          deliveryTime: 'morning',
-          paymentMethod: 'card'
-        })
+        setShowSuccessAnimation(true)
+        
+        // Show success animation for 2 seconds before showing success page
+        setTimeout(() => {
+          setOrderSuccess(true)
+          setCart([])
+          setFormData({
+            customerName: '',
+            customerEmail: '',
+            deliveryAddress: '',
+            deliveryDate: '',
+            deliveryTime: 'morning',
+            paymentMethod: 'card'
+          })
+        }, 2000)
       } else {
-        alert('Failed to place order. Please try again.')
+        const errorData = await response.json()
+        setErrors({ submit: errorData.error || 'Failed to place order. Please try again.' })
       }
     } catch (error) {
       console.error('Error placing order:', error)
-      alert('Failed to place order. Please try again.')
+      setErrors({ submit: 'Network error. Please check your connection and try again.' })
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (showSuccessAnimation) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-bounce text-8xl mb-4">🎉</div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Processing Your Order...</h1>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+        </div>
+      </div>
+    )
   }
 
   if (orderSuccess) {
@@ -284,8 +346,13 @@ export default function OrderPage() {
                         required
                         value={formData.customerName}
                         onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                          errors.customerName ? 'border-red-500' : 'border-gray-300'
+                        }`}
                       />
+                      {errors.customerName && (
+                        <p className="text-red-500 text-sm mt-1">{errors.customerName}</p>
+                      )}
                     </div>
 
                     <div>
@@ -297,8 +364,13 @@ export default function OrderPage() {
                         required
                         value={formData.customerEmail}
                         onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                          errors.customerEmail ? 'border-red-500' : 'border-gray-300'
+                        }`}
                       />
+                      {errors.customerEmail && (
+                        <p className="text-red-500 text-sm mt-1">{errors.customerEmail}</p>
+                      )}
                     </div>
 
                     <div>
@@ -310,8 +382,13 @@ export default function OrderPage() {
                         value={formData.deliveryAddress}
                         onChange={(e) => setFormData({ ...formData, deliveryAddress: e.target.value })}
                         rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                          errors.deliveryAddress ? 'border-red-500' : 'border-gray-300'
+                        }`}
                       />
+                      {errors.deliveryAddress && (
+                        <p className="text-red-500 text-sm mt-1">{errors.deliveryAddress}</p>
+                      )}
                     </div>
 
                     <div>
@@ -324,8 +401,13 @@ export default function OrderPage() {
                         value={formData.deliveryDate}
                         onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })}
                         min={new Date().toISOString().split('T')[0]}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                          errors.deliveryDate ? 'border-red-500' : 'border-gray-300'
+                        }`}
                       />
+                      {errors.deliveryDate && (
+                        <p className="text-red-500 text-sm mt-1">{errors.deliveryDate}</p>
+                      )}
                     </div>
 
                     <div>
@@ -359,6 +441,18 @@ export default function OrderPage() {
                         <option value="eft">EFT Transfer</option>
                       </select>
                     </div>
+
+                    {errors.cart && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p className="text-red-600 text-sm">{errors.cart}</p>
+                      </div>
+                    )}
+
+                    {errors.submit && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p className="text-red-600 text-sm">{errors.submit}</p>
+                      </div>
+                    )}
 
                     <button
                       type="submit"

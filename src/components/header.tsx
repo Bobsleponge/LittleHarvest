@@ -18,6 +18,9 @@ export function Header() {
             <Link href="/order" className="text-gray-600 hover:text-gray-800 font-semibold">
               Order Now
             </Link>
+            <Link href="/track-order" className="text-gray-600 hover:text-gray-800 font-semibold">
+              Track Order
+            </Link>
             <Link href="/cart" className="text-gray-600 hover:text-gray-800 font-semibold">
               Cart
             </Link>
@@ -30,3 +33,5 @@ export function Header() {
     </header>
   )
 }
+
+export default Header
