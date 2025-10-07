@@ -68,7 +68,7 @@ export function isPaymentOverdue(paymentDueDate: Date): boolean {
 export function getBankDetails() {
   return {
     bankName: 'Standard Bank',
-    accountName: 'Tiny Tastes (Pty) Ltd',
+    accountName: 'Little Harvest (Pty) Ltd',
     accountNumber: '1234567890',
     branchCode: '051001',
     reference: 'Use your order number as reference',

@@ -2,24 +2,24 @@
 
 ## 🎯 **What I Created for You:**
 
-I've created **4 different launcher options** that you can double-click to start your Tiny Tastes application:
+I've created **4 different launcher options** that you can double-click to start your Little Harvest application:
 
-### **1. 🪟 Tiny Tastes Launcher.bat** (Recommended)
+### **1. 🪟 Little Harvest Launcher.bat** (Recommended)
 - **Best for:** Most Windows users
 - **How to use:** Just double-click the file
 - **Features:** Full setup, error checking, colored output
 
-### **2. ⚡ Tiny Tastes Launcher.ps1** (PowerShell)
+### **2. ⚡ Little Harvest Launcher.ps1** (PowerShell)
 - **Best for:** Users with PowerShell enabled
 - **How to use:** Double-click or right-click → "Run with PowerShell"
 - **Features:** Advanced error handling, colored output, better logging
 
-### **3. 🔧 Tiny Tastes Launcher.vbs** (VBScript)
+### **3. 🔧 Little Harvest Launcher.vbs** (VBScript)
 - **Best for:** Users with PowerShell restrictions
 - **How to use:** Just double-click the file
 - **Features:** Works even with strict security policies
 
-### **4. 🌐 Tiny Tastes Launcher.html** (Browser)
+### **4. 🌐 Little Harvest Launcher.html** (Browser)
 - **Best for:** Quick status checking and links
 - **How to use:** Double-click to open in browser
 - **Features:** Status checking, quick links, visual interface
@@ -33,10 +33,10 @@ Pick one of the launcher files above (I recommend the `.bat` file for most users
 1. **Right-click** on your chosen launcher file
 2. Select **"Create shortcut"**
 3. **Drag the shortcut** to your desktop
-4. **Rename it** to "Tiny Tastes" (optional)
+4. **Rename it** to "Little Harvest" (optional)
 
 ### **Step 3: Double-Click to Start**
-Just double-click your desktop shortcut and your Tiny Tastes application will start!
+Just double-click your desktop shortcut and your Little Harvest application will start!
 
 ## 🎯 **What Each Launcher Does:**
 
@@ -85,7 +85,7 @@ Once the launcher runs successfully, you'll have access to:
 
 ## 🎉 **You're All Set!**
 
-Now you can start your Tiny Tastes application with just **one double-click** from your desktop! 
+Now you can start your Little Harvest application with just **one double-click** from your desktop! 
 
 The launcher will handle everything automatically and open your application in the browser when it's ready.
 

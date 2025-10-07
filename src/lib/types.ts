@@ -1,4 +1,4 @@
-// Centralized type definitions for the Tiny Tastes application
+// Centralized type definitions for the Little Harvest application
 
 // User and Authentication Types
 export interface User {

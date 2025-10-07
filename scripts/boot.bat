@@ -1,12 +1,12 @@
 @echo off
-REM Tiny Tastes - Windows Boot Script
+REM Little Harvest - Windows Boot Script
 REM This script handles the complete startup sequence for Windows
 
 setlocal enabledelayedexpansion
 
 echo.
 echo ========================================
-echo    Tiny Tastes Boot Sequence
+echo    Little Harvest Boot Sequence
 echo ========================================
 echo.
 

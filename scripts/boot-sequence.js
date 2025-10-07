@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Tiny Tastes - Complete Boot Sequence
+ * Little Harvest - Complete Boot Sequence
  * 
  * This script handles the complete startup sequence for:
  * - Database initialization and migration
@@ -338,7 +338,7 @@ class BootSequence {
   }
 
   async run() {
-    this.log('🚀 Tiny Tastes Boot Sequence Starting...', 'bright');
+    this.log('🚀 Little Harvest Boot Sequence Starting...', 'bright');
     this.log(`⏰ Started at: ${new Date().toISOString()}`, 'blue');
 
     // Setup graceful shutdown

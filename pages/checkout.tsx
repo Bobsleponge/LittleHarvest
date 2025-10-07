@@ -223,7 +223,7 @@ export default function CheckoutPage() {
                   <h3 className="font-semibold text-blue-900 mb-3">💳 EFT Payment Instructions</h3>
                   <div className="space-y-2 text-sm text-blue-800">
                     <p><strong>Bank:</strong> Standard Bank</p>
-                    <p><strong>Account Name:</strong> Tiny Tastes (Pty) Ltd</p>
+                    <p><strong>Account Name:</strong> Little Harvest (Pty) Ltd</p>
                     <p><strong>Account Number:</strong> 1234567890</p>
                     <p><strong>Branch Code:</strong> 051001</p>
                     <p><strong>Reference:</strong> <span className="font-mono font-bold">{orderReference}</span></p>

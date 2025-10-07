@@ -67,7 +67,7 @@ export default function AdminSettingsPage() {
       // Mock settings data
       const mockSettings: SettingsData = {
         general: {
-          siteName: 'Tiny Tastes',
+          siteName: 'Little Harvest',
           siteDescription: 'Fresh Baby Food Made with Love',
           siteUrl: 'https://tinytastes.co.za',
           adminEmail: 'admin@tinytastes.co.za',

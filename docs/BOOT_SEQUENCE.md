@@ -1,10 +1,10 @@
-# 🚀 Tiny Tastes Boot Sequence
+# 🚀 Little Harvest Boot Sequence
 
-Complete startup and deployment guide for the Tiny Tastes application.
+Complete startup and deployment guide for the Little Harvest application.
 
 ## 📋 Overview
 
-The Tiny Tastes application includes multiple boot sequences for different deployment scenarios:
+The Little Harvest application includes multiple boot sequences for different deployment scenarios:
 
 - **Local Development** - Quick setup for development
 - **Docker Deployment** - Containerized deployment

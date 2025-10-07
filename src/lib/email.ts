@@ -762,7 +762,7 @@ export function generatePaymentConfirmationEmail(data: OrderNotificationData): E
         </div>
 
         <div class="footer">
-          <p>Thank you for choosing Tiny Tastes!</p>
+          <p>Thank you for choosing Little Harvest!</p>
           <p>We'll keep you updated on your order progress.</p>
         </div>
       </div>

@@ -6,7 +6,7 @@ export function CTASection() {
       <div className="container mx-auto px-4 text-center">
         <h2 className="text-3xl font-bold text-white mb-4">Ready to Start?</h2>
         <p className="text-emerald-100 mb-8 max-w-2xl mx-auto">
-          Join thousands of families who trust Tiny Tastes for their baby's nutrition.
+          Join thousands of families who trust Little Harvest for their baby's nutrition.
         </p>
         <Link 
           href="/products" 

@@ -4,7 +4,7 @@ const prisma = new PrismaClient()
 
 const defaultSettings = [
   // General Settings
-  { category: 'general', key: 'storeName', value: 'Tiny Tastes', description: 'Store name' },
+  { category: 'general', key: 'storeName', value: 'Little Harvest', description: 'Store name' },
   { category: 'general', key: 'storeDescription', value: 'Fresh, organic baby food delivered to your door', description: 'Store description' },
   { category: 'general', key: 'storeEmail', value: 'hello@tinytastes.co.za', description: 'Store contact email' },
   { category: 'general', key: 'storePhone', value: '+27 21 123 4567', description: 'Store contact phone' },

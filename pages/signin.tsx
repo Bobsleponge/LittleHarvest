@@ -77,7 +77,7 @@ export default function SignInPage() {
               <div className="h-12 w-12 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center">
                 <span className="text-white font-bold text-xl">TT</span>
               </div>
-              <span className="font-bold text-3xl text-gray-800">Tiny Tastes</span>
+              <span className="font-bold text-3xl text-gray-800">Little Harvest</span>
             </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Admin Sign In</h1>
             <p className="text-gray-600">Sign in to access the admin panel</p>

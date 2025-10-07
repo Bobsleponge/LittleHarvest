@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Tiny Tastes - Universal Startup Script
+# Little Harvest - Universal Startup Script
 # Handles all deployment scenarios: local, Docker, production
 
 set -e
@@ -41,7 +41,7 @@ log_info() {
 
 # Show usage
 show_usage() {
-    echo "Tiny Tastes - Universal Startup Script"
+    echo "Little Harvest - Universal Startup Script"
     echo ""
     echo "USAGE:"
     echo "  ./scripts/start.sh [MODE]"
@@ -222,7 +222,7 @@ start_staging() {
 main() {
     echo ""
     echo "========================================"
-    echo "    Tiny Tastes Universal Startup"
+    echo "    Little Harvest Universal Startup"
     echo "========================================"
     echo ""
     

@@ -63,7 +63,7 @@ export default function SignInPage() {
           </div>
           <CardTitle className="text-2xl">Welcome Back</CardTitle>
           <CardDescription>
-            Sign in to your Tiny Tastes account
+            Sign in to your Little Harvest account
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

@@ -1,10 +1,10 @@
 @echo off
-REM Tiny Tastes - Quick Start Script for Windows
+REM Little Harvest - Quick Start Script for Windows
 REM This is a simple launcher for the boot sequence
 
 echo.
 echo ========================================
-echo    Tiny Tastes - Quick Start
+echo    Little Harvest - Quick Start
 echo ========================================
 echo.
 
@@ -24,7 +24,7 @@ if not exist "package.json" (
     exit /b 1
 )
 
-echo [INFO] Starting Tiny Tastes...
+echo [INFO] Starting Little Harvest...
 echo [INFO] This will install dependencies, setup database, and start the server
 echo.
 

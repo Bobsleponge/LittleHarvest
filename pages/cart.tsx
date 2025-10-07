@@ -131,7 +131,7 @@ export default function CartPage() {
                   <div className="h-10 w-10 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center">
                     <span className="text-white font-bold text-lg">TT</span>
                   </div>
-                  <span className="font-bold text-2xl text-gray-800">Tiny Tastes</span>
+                  <span className="font-bold text-2xl text-gray-800">Little Harvest</span>
                 </Link>
               </div>
               <nav className="hidden md:flex items-center space-x-8">

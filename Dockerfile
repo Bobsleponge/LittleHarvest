@@ -1,4 +1,4 @@
-# Tiny Tastes - Multi-stage Dockerfile
+# Little Harvest - Multi-stage Dockerfile
 # Optimized for both development and production
 
 # Base image

@@ -1,4 +1,4 @@
-// Comprehensive logging system for Tiny Tastes
+// Comprehensive logging system for Little Harvest
 import { NextRequest } from 'next/server'
 
 export enum LogLevel {

@@ -68,7 +68,7 @@ interface UISettings {
 export default function UIManagement() {
   const [settings, setSettings] = useState<UISettings>({
     brand: {
-      siteName: 'Tiny Tastes',
+      siteName: 'Little Harvest',
       tagline: 'Nutritious meals for little ones',
       logoUrl: '',
       faviconUrl: ''

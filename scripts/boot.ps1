@@ -1,4 +1,4 @@
-# Tiny Tastes - PowerShell Boot Script
+# Little Harvest - PowerShell Boot Script
 # This script handles the complete startup sequence with advanced features
 
 param(
@@ -14,7 +14,7 @@ param(
 # Show help if requested
 if ($Help) {
     Write-Host @"
-Tiny Tastes Boot Script
+Little Harvest Boot Script
 
 USAGE:
     .\boot.ps1 [OPTIONS]
@@ -90,7 +90,7 @@ function Write-Info {
 try {
     Write-Host ""
     Write-Host "========================================" -ForegroundColor $Colors.Cyan
-    Write-Host "    Tiny Tastes Boot Sequence" -ForegroundColor $Colors.Cyan
+    Write-Host "    Little Harvest Boot Sequence" -ForegroundColor $Colors.Cyan
     Write-Host "========================================" -ForegroundColor $Colors.Cyan
     Write-Host ""
 

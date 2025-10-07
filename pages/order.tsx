@@ -206,7 +206,7 @@ export default function OrderPage() {
               <div className="text-6xl mb-4">🎉</div>
               <h1 className="text-3xl font-bold text-gray-900 mb-4">Order Placed Successfully!</h1>
               <p className="text-lg text-gray-600 mb-6">
-                Thank you for choosing Tiny Tastes! Your order has been received and is being processed.
+                Thank you for choosing Little Harvest! Your order has been received and is being processed.
               </p>
               <div className="bg-emerald-50 rounded-lg p-6 mb-6">
                 <h2 className="text-xl font-semibold text-emerald-800 mb-2">Order Details</h2>

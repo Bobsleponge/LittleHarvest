@@ -1,7 +1,7 @@
 # Performance Optimizations Summary
 
 ## Overview
-This document outlines the comprehensive performance optimizations implemented to improve the Tiny Tastes application's speed and efficiency.
+This document outlines the comprehensive performance optimizations implemented to improve the Little Harvest application's speed and efficiency.
 
 ## 🚀 Key Optimizations Implemented
 

@@ -28,7 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Default UI settings if none exist
     const defaultSettings = {
       brand: {
-        siteName: 'Tiny Tastes',
+        siteName: 'Little Harvest',
         tagline: 'Nutritious meals for little ones',
         logoUrl: '',
         faviconUrl: ''
@@ -77,7 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Return default settings on error
     const defaultSettings = {
       brand: {
-        siteName: 'Tiny Tastes',
+        siteName: 'Little Harvest',
         tagline: 'Nutritious meals for little ones',
         logoUrl: '',
         faviconUrl: ''

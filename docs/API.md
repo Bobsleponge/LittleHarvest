@@ -1,8 +1,8 @@
-# 📚 Tiny Tastes API Documentation
+# 📚 Little Harvest API Documentation
 
 ## Overview
 
-The Tiny Tastes API provides endpoints for managing products, orders, cart operations, and administrative functions. All endpoints return JSON responses and use standard HTTP status codes.
+The Little Harvest API provides endpoints for managing products, orders, cart operations, and administrative functions. All endpoints return JSON responses and use standard HTTP status codes.
 
 ## Authentication
 

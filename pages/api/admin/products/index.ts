@@ -76,7 +76,7 @@ async function getProducts(req: NextApiRequest, res: NextApiResponse) {
       minStock: product.inventory[0]?.weeklyLimit || 10,
       maxStock: product.inventory[0]?.currentStock * 2 || 100,
       unitCost: product.prices[0]?.amountZar * 0.6 || 0, // Mock cost calculation
-      supplier: 'Tiny Tastes', // Default supplier
+      supplier: 'Little Harvest', // Default supplier
       status: product.isActive ? 'active' : 'inactive',
       createdAt: product.createdAt.toISOString().split('T')[0],
       updatedAt: product.updatedAt.toISOString().split('T')[0],

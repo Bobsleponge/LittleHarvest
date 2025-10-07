@@ -1,4 +1,4 @@
-// Performance monitoring and metrics collection for Tiny Tastes
+// Performance monitoring and metrics collection for Little Harvest
 import { logger } from './logger'
 
 export interface MetricData {

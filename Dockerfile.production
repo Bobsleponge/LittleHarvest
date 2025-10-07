@@ -1,4 +1,4 @@
-# Production Dockerfile for Tiny Tastes
+# Production Dockerfile for Little Harvest
 FROM node:18-alpine AS base
 
 # Install dependencies only when needed

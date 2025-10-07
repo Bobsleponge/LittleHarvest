@@ -8,7 +8,7 @@ const testimonials = [
   {
     name: "Sarah Johnson",
     role: "Mother of 2",
-    content: "Tiny Tastes has been a lifesaver! My little one absolutely loves the sweet potato puree, and I love knowing he's getting the best nutrition.",
+    content: "Little Harvest has been a lifesaver! My little one absolutely loves the sweet potato puree, and I love knowing he's getting the best nutrition.",
     rating: 5,
     avatar: "SJ",
   },
@@ -22,7 +22,7 @@ const testimonials = [
   {
     name: "Emma Rodriguez",
     role: "Mother of 3",
-    content: "As a pediatric nurse, I'm very particular about what my children eat. Tiny Tastes meets all my standards and more!",
+    content: "As a pediatric nurse, I'm very particular about what my children eat. Little Harvest meets all my standards and more!",
     rating: 5,
     avatar: "ER",
   },
@@ -43,7 +43,7 @@ export function ModernTestimonials() {
             What Parents Say
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Don't just take our word for it. Here's what real parents are saying about Tiny Tastes.
+            Don't just take our word for it. Here's what real parents are saying about Little Harvest.
           </p>
         </motion.div>
 

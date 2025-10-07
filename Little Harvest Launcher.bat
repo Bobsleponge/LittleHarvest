@@ -1,12 +1,12 @@
 @echo off
-REM Tiny Tastes - Desktop Launcher
-REM Double-click this file to start your Tiny Tastes application
+REM Little Harvest - Desktop Launcher
+REM Double-click this file to start your Little Harvest application
 
-title Tiny Tastes - Starting Application...
+title Little Harvest - Starting Application...
 
 echo.
 echo ========================================
-echo    Tiny Tastes - Desktop Launcher
+echo    Little Harvest - Desktop Launcher
 echo ========================================
 echo.
 
@@ -15,7 +15,7 @@ cd /d "%~dp0"
 
 REM Check if we're in the right directory
 if not exist "package.json" (
-    echo ERROR: This launcher must be in the Tiny Tastes project folder
+    echo ERROR: This launcher must be in the Little Harvest project folder
     echo Please move this file to your project root directory
     echo.
     pause
@@ -32,7 +32,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [INFO] Starting Tiny Tastes Application...
+echo [INFO] Starting Little Harvest Application...
 echo [INFO] This may take a moment on first run...
 echo.
 
@@ -63,7 +63,7 @@ if not exist "prisma\dev.db" (
 )
 
 echo.
-echo [SUCCESS] Starting Tiny Tastes...
+echo [SUCCESS] Starting Little Harvest...
 echo.
 echo ========================================
 echo    Application Starting...
@@ -86,5 +86,5 @@ call npm run dev
 
 REM If we reach here, the server was stopped
 echo.
-echo [INFO] Tiny Tastes has been stopped
+echo [INFO] Little Harvest has been stopped
 pause

@@ -389,7 +389,7 @@ groups:
 ```bash
 #!/bin/bash
 
-# Secure backup script for Tiny Tastes
+# Secure backup script for Little Harvest
 set -euo pipefail
 
 # Configuration

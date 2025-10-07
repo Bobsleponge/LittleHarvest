@@ -21,7 +21,7 @@ export function FeaturesSection() {
     <section className="py-16 bg-white">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Why Choose Tiny Tastes?</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Why Choose Little Harvest?</h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
             We're committed to providing the highest quality, most nutritious baby food for your little one.
           </p>

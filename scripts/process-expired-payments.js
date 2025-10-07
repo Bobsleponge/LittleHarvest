@@ -8,7 +8,7 @@
  *   node scripts/process-expired-payments.js
  * 
  * Cron example (every hour):
- *   0 * * * * cd /path/to/tiny-tastes && node scripts/process-expired-payments.js
+ *   0 * * * * cd /path/to/little-harvest && node scripts/process-expired-payments.js
  */
 
 const { PrismaClient } = require('@prisma/client')

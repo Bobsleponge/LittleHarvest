@@ -1,8 +1,8 @@
-# Tiny Tastes - PowerShell Desktop Launcher
-# Double-click this file to start your Tiny Tastes application
+# Little Harvest - PowerShell Desktop Launcher
+# Double-click this file to start your Little Harvest application
 
 # Set the window title
-$Host.UI.RawUI.WindowTitle = "Tiny Tastes - Starting Application..."
+$Host.UI.RawUI.WindowTitle = "Little Harvest - Starting Application..."
 
 # Colors for output
 $Colors = @{
@@ -53,7 +53,7 @@ function Write-Info {
 try {
     Write-Host ""
     Write-Host "========================================" -ForegroundColor $Colors.Cyan
-    Write-Host "    Tiny Tastes - Desktop Launcher" -ForegroundColor $Colors.Cyan
+    Write-Host "    Little Harvest - Desktop Launcher" -ForegroundColor $Colors.Cyan
     Write-Host "========================================" -ForegroundColor $Colors.Cyan
     Write-Host ""
 
@@ -63,7 +63,7 @@ try {
 
     # Check if we're in the right directory
     if (-not (Test-Path "package.json")) {
-        Write-Error "This launcher must be in the Tiny Tastes project folder"
+        Write-Error "This launcher must be in the Little Harvest project folder"
         Write-Info "Please move this file to your project root directory"
         Write-Host ""
         Read-Host "Press Enter to exit"
@@ -94,7 +94,7 @@ try {
         exit 1
     }
 
-    Write-Step "Starting Tiny Tastes Application..."
+    Write-Step "Starting Little Harvest Application..."
     Write-Info "This may take a moment on first run..."
 
     # Set environment variables
@@ -131,7 +131,7 @@ try {
     }
 
     Write-Host ""
-    Write-Success "Starting Tiny Tastes..."
+    Write-Success "Starting Little Harvest..."
     Write-Host ""
     Write-Host "========================================" -ForegroundColor $Colors.Cyan
     Write-Host "    Application Starting..." -ForegroundColor $Colors.Cyan
@@ -154,7 +154,7 @@ try {
 
     # If we reach here, the server was stopped
     Write-Host ""
-    Write-Info "Tiny Tastes has been stopped"
+    Write-Info "Little Harvest has been stopped"
     Read-Host "Press Enter to exit"
 
 }

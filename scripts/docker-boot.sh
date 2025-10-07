@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Tiny Tastes - Docker Boot Script
+# Little Harvest - Docker Boot Script
 # This script handles the complete startup sequence for Docker containers
 
 set -e  # Exit on any error
@@ -46,7 +46,7 @@ log_info() {
 main() {
     echo ""
     echo "========================================"
-    echo "    Tiny Tastes Docker Boot Sequence"
+    echo "    Little Harvest Docker Boot Sequence"
     echo "========================================"
     echo ""
 

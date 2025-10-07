@@ -45,7 +45,7 @@ export function ModernFooter() {
             className="lg:col-span-2"
           >
             <h3 className="text-2xl font-bold mb-4 bg-gradient-to-r from-white to-emerald-200 bg-clip-text text-transparent">
-              Tiny Tastes
+              Little Harvest
             </h3>
             <p className="text-gray-300 mb-6 leading-relaxed">
               Nourishing little ones with love, one meal at a time. We're committed to providing 
@@ -163,7 +163,7 @@ export function ModernFooter() {
             </div>
             
             <div className="text-gray-400 text-sm">
-              © 2024 Tiny Tastes. All rights reserved.
+              © 2024 Little Harvest. All rights reserved.
             </div>
           </div>
         </motion.div>
