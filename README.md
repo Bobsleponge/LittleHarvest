@@ -1,4 +1,4 @@
-# 🍼 Tiny Tastes - Fresh Baby Food Delivery
+# 🌱 Little Harvest - Fresh Baby Food Delivery
 
 A modern, full-stack e-commerce application for fresh baby food delivery built with Next.js 14, TypeScript, and Prisma.
 
@@ -41,7 +41,7 @@ A modern, full-stack e-commerce application for fresh baby food delivery built w
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd tiny-tastes
+   cd little-harvest
    ```
 
 2. **Install dependencies**
@@ -63,7 +63,7 @@ A modern, full-stack e-commerce application for fresh baby food delivery built w
    EMAIL_SERVER_PORT=587
    EMAIL_SERVER_USER="your-email@gmail.com"
    EMAIL_SERVER_PASSWORD="your-app-password"
-   EMAIL_FROM="noreply@tinytastes.co.za"
+   EMAIL_FROM="noreply@littleharvest.co.za"
    GOOGLE_CLIENT_ID="your-google-client-id"
    GOOGLE_CLIENT_SECRET="your-google-client-secret"
    ```
@@ -306,7 +306,7 @@ See `env.example` for complete list of required variables.
 - Test error scenarios
 
 ### **Development Accounts**
-- `admin@tinytastes.co.za` - Admin access
+- `admin@littleharvest.co.za` - Admin access
 - `customer@example.com` - Customer access
 
 ## 📊 Monitoring

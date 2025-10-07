@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { AdminDateProvider, useAdminDate } from '../../src/lib/admin-date-context'
+import { useBrandSettings } from '../../src/lib/ui-settings-context'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -13,24 +15,48 @@ interface NavItem {
   badge?: string
 }
 
-const navigation: NavItem[] = [
-  { name: 'Dashboard', href: '/admin', icon: '📊' },
-  { name: 'Analytics', href: '/admin/analytics', icon: '📈' },
-  { name: 'Products', href: '/admin/products', icon: '🍎' },
-  { name: 'Orders', href: '/admin/orders', icon: '📦' },
-  { name: 'Customers', href: '/admin/customers', icon: '👥' },
-  { name: 'Inventory', href: '/admin/inventory', icon: '📋' },
-  { name: 'Media', href: '/admin/media', icon: '🖼️' },
-  { name: 'Content', href: '/admin/content', icon: '📄' },
-  { name: 'Notifications', href: '/admin/notifications', icon: '🔔', badge: '2' },
-  { name: 'Database', href: '/admin/database', icon: '🗄️' },
-  { name: 'Security', href: '/admin/security', icon: '🔒' },
-  { name: 'Settings', href: '/admin/settings', icon: '⚙️' },
-]
+  const navigation: NavItem[] = [
+    { name: 'Dashboard', href: '/admin', icon: '📊' },
+    { name: 'Analytics', href: '/admin/analytics', icon: '📈' },
+    { name: 'Products & Inventory', href: '/admin/products-inventory', icon: '🍎' },
+    { name: 'Orders', href: '/admin/orders', icon: '📦' },
+    { name: 'Customers', href: '/admin/customers', icon: '👥' },
+    { name: 'UI Management', href: '/admin/ui', icon: '🎨' },
+    { name: 'Notifications', href: '/admin/notifications', icon: '🔔', badge: '2' },
+    { name: 'Database', href: '/admin/database', icon: '🗄️' },
+    { name: 'Security', href: '/admin/security', icon: '🔒' },
+    { name: 'Settings', href: '/admin/settings', icon: '⚙️' },
+  ]
 
-export default function AdminLayout({ children }: AdminLayoutProps) {
+// Date Selector Component
+function DateSelector() {
+  const { dateRange, setDateRange, formatDateRange } = useAdminDate()
+
+  return (
+    <div className="flex items-center space-x-2">
+      <span className="text-sm text-gray-600">Date Range:</span>
+      <select
+        value={dateRange}
+        onChange={(e) => setDateRange(e.target.value as any)}
+        className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+      >
+        <option value="1d">Today</option>
+        <option value="7d">Last 7 days</option>
+        <option value="30d">Last 30 days</option>
+        <option value="90d">Last 90 days</option>
+        <option value="1y">Last year</option>
+        <option value="all">All Time</option>
+      </select>
+      <span className="text-xs text-gray-500">{formatDateRange()}</span>
+    </div>
+  )
+}
+
+// Main Layout Component
+function AdminLayoutContent({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const router = useRouter()
+  const brandSettings = useBrandSettings()
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -49,10 +75,20 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
             <Link href="/admin" className="flex items-center space-x-3">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">TT</span>
-              </div>
-              <span className="font-bold text-lg text-gray-800">Tiny Tastes</span>
+              {brandSettings.logoUrl ? (
+                <img 
+                  src={brandSettings.logoUrl} 
+                  alt={brandSettings.siteName}
+                  className="h-8 w-8 rounded-full object-cover"
+                />
+              ) : (
+                <div className="h-8 w-8 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">
+                    {brandSettings.siteName.substring(0, 2).toUpperCase()}
+                  </span>
+                </div>
+              )}
+              <span className="font-bold text-lg text-gray-800">{brandSettings.siteName}</span>
             </Link>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -123,29 +159,53 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {/* Main content */}
       <div className="lg:ml-64">
         {/* Top bar */}
-        <div className="sticky top-0 z-10 bg-white shadow-sm border-b border-gray-200 lg:hidden">
+        <div className="sticky top-0 z-10 bg-white shadow-sm border-b border-gray-200">
           <div className="flex items-center justify-between h-16 px-4">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-            >
-              <span className="text-xl">☰</span>
-            </button>
-            <Link href="/admin" className="flex items-center space-x-2">
-              <div className="h-6 w-6 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center">
-                <span className="text-white font-bold text-xs">TT</span>
-              </div>
-              <span className="font-bold text-gray-800">Tiny Tastes Admin</span>
-            </Link>
-            <div className="w-8" /> {/* Spacer */}
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              >
+                <span className="text-xl">☰</span>
+              </button>
+              <Link href="/admin" className="flex items-center space-x-2">
+                {brandSettings.logoUrl ? (
+                  <img 
+                    src={brandSettings.logoUrl} 
+                    alt={brandSettings.siteName}
+                    className="h-6 w-6 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="h-6 w-6 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center">
+                    <span className="text-white font-bold text-xs">
+                      {brandSettings.siteName.substring(0, 2).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                <span className="font-bold text-gray-800">{brandSettings.siteName} Admin</span>
+              </Link>
+            </div>
+            <div className="hidden lg:block">
+              <DateSelector />
+            </div>
+            <div className="w-8 lg:hidden" /> {/* Spacer */}
           </div>
         </div>
 
         {/* Page content */}
         <main className="flex-1">
+          {/* Mobile date selector */}
+          <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3">
+            <DateSelector />
+          </div>
           {children}
         </main>
       </div>
     </div>
   )
+}
+
+// Main AdminLayout component
+export default function AdminLayout({ children }: AdminLayoutProps) {
+  return <AdminLayoutContent>{children}</AdminLayoutContent>
 }

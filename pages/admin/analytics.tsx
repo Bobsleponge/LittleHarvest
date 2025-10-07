@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import AdminLayout from '../../components/admin/admin-layout'
+import { useAdminDate } from '../../src/lib/admin-date-context'
 
 interface AnalyticsData {
   totalRevenue: number
@@ -29,33 +30,66 @@ interface AnalyticsData {
 }
 
 export default function AdminAnalyticsPage() {
-  const [timeRange, setTimeRange] = useState('30d')
-  const [analyticsData] = useState<AnalyticsData>({
-    totalRevenue: 12450,
-    totalOrders: 156,
-    totalCustomers: 89,
-    averageOrderValue: 79.8,
-    conversionRate: 3.2,
-    topProducts: [
-      { name: 'Organic Apple Puree', sales: 45, revenue: 2025, image: '🍎' },
-      { name: 'Sweet Potato Mash', sales: 38, revenue: 1596, image: '🍠' },
-      { name: 'Banana & Oatmeal', sales: 32, revenue: 1536, image: '🍌' },
-      { name: 'Chicken & Rice', sales: 28, revenue: 1456, image: '🍗' },
-      { name: 'Carrot & Pea Mix', sales: 25, revenue: 1100, image: '🥕' }
-    ],
-    recentOrders: [
-      { id: 'TT-2024-001', customer: 'Sarah Johnson', amount: 132, date: '2024-01-15', status: 'delivered' },
-      { id: 'TT-2024-002', customer: 'Mike Chen', amount: 89, date: '2024-01-20', status: 'shipped' },
-      { id: 'TT-2024-003', customer: 'Emma Davis', amount: 156, date: '2024-01-25', status: 'processing' },
-      { id: 'TT-2024-004', customer: 'David Wilson', amount: 94, date: '2024-01-28', status: 'pending' }
-    ],
-    salesByMonth: [
-      { month: 'Oct 2023', revenue: 8500, orders: 98 },
-      { month: 'Nov 2023', revenue: 9200, orders: 112 },
-      { month: 'Dec 2023', revenue: 11800, orders: 134 },
-      { month: 'Jan 2024', revenue: 12450, orders: 156 }
-    ]
+  const { dateRange, getDateFilter } = useAdminDate()
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
+    totalRevenue: 0,
+    totalOrders: 0,
+    totalCustomers: 0,
+    averageOrderValue: 0,
+    conversionRate: 0,
+    topProducts: [],
+    recentOrders: [],
+    salesByMonth: []
   })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchAnalyticsData = async () => {
+      setLoading(true)
+      
+      try {
+        const response = await fetch(`/api/admin/analytics?dateRange=${dateRange}`)
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch analytics data')
+        }
+        
+        const data = await response.json()
+        setAnalyticsData(data)
+        
+      } catch (error) {
+        console.error('Error fetching analytics data:', error)
+        // Set empty data on error
+        setAnalyticsData({
+          totalRevenue: 0,
+          totalOrders: 0,
+          totalCustomers: 0,
+          averageOrderValue: 0,
+          conversionRate: 0,
+          topProducts: [],
+          recentOrders: [],
+          salesByMonth: []
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAnalyticsData()
+  }, [dateRange])
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center min-h-96">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading analytics...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    )
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -86,16 +120,6 @@ export default function AdminAnalyticsPage() {
             <p className="text-gray-600">Track your business performance and insights</p>
           </div>
           <div className="flex space-x-3">
-            <select
-              value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            >
-              <option value="7d">Last 7 days</option>
-              <option value="30d">Last 30 days</option>
-              <option value="90d">Last 90 days</option>
-              <option value="1y">Last year</option>
-            </select>
             <button className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors">
               Export Report
             </button>
@@ -109,7 +133,7 @@ export default function AdminAnalyticsPage() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Revenue</p>
                 <p className="text-3xl font-bold text-emerald-600">R{analyticsData.totalRevenue.toLocaleString()}</p>
-                <p className="text-sm text-green-600">+12.5% from last month</p>
+                {analyticsData.totalRevenue > 0 && <p className="text-sm text-green-600">Live data from database</p>}
               </div>
               <div className="h-12 w-12 bg-emerald-100 rounded-full flex items-center justify-center">
                 <span className="text-2xl">💰</span>
@@ -122,7 +146,7 @@ export default function AdminAnalyticsPage() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Orders</p>
                 <p className="text-3xl font-bold text-blue-600">{analyticsData.totalOrders}</p>
-                <p className="text-sm text-green-600">+8.2% from last month</p>
+                {analyticsData.totalOrders > 0 && <p className="text-sm text-green-600">Live data from database</p>}
               </div>
               <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
                 <span className="text-2xl">📦</span>
@@ -135,7 +159,7 @@ export default function AdminAnalyticsPage() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Customers</p>
                 <p className="text-3xl font-bold text-purple-600">{analyticsData.totalCustomers}</p>
-                <p className="text-sm text-green-600">+15.3% from last month</p>
+                {analyticsData.totalCustomers > 0 && <p className="text-sm text-green-600">Live data from database</p>}
               </div>
               <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center">
                 <span className="text-2xl">👥</span>
@@ -148,7 +172,7 @@ export default function AdminAnalyticsPage() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Avg Order Value</p>
                 <p className="text-3xl font-bold text-orange-600">R{analyticsData.averageOrderValue}</p>
-                <p className="text-sm text-green-600">+4.1% from last month</p>
+                {analyticsData.averageOrderValue > 0 && <p className="text-sm text-green-600">Live data from database</p>}
               </div>
               <div className="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center">
                 <span className="text-2xl">📊</span>

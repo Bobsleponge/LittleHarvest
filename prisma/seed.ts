@@ -421,8 +421,54 @@ async function main() {
       firstName: 'Jane',
       lastName: 'Smith',
       phone: '+27 83 456 7890',
-      childName: 'Emma',
-      childDob: new Date('2023-06-15'), // 6 months old
+    },
+  })
+
+  // Create child profiles for customer
+  await prisma.childProfile.create({
+    data: {
+      profileId: customerProfile.id,
+      name: 'Emma',
+      dateOfBirth: new Date('2023-06-15'), // 6 months old
+      gender: 'FEMALE',
+      allergies: JSON.stringify(['nuts', 'dairy']),
+      dietaryRequirements: JSON.stringify(['vegetarian']),
+      foodPreferences: JSON.stringify({
+        likes: ['fruits', 'vegetables'],
+        dislikes: ['spicy foods']
+      })
+    },
+  })
+
+  // Add second child profile for customer
+  await prisma.childProfile.create({
+    data: {
+      profileId: customerProfile.id,
+      name: 'Sophie',
+      dateOfBirth: new Date('2022-08-20'), // 16 months old
+      gender: 'FEMALE',
+      allergies: JSON.stringify(['shellfish', 'soy']),
+      dietaryRequirements: JSON.stringify(['halal']),
+      foodPreferences: JSON.stringify({
+        likes: ['chicken', 'rice', 'sweet vegetables'],
+        dislikes: ['bitter vegetables', 'fish']
+      })
+    },
+  })
+
+  // Add third child profile for customer
+  await prisma.childProfile.create({
+    data: {
+      profileId: customerProfile.id,
+      name: 'Oliver',
+      dateOfBirth: new Date('2021-12-10'), // 24 months old
+      gender: 'MALE',
+      allergies: JSON.stringify(['peanuts', 'wheat']),
+      dietaryRequirements: JSON.stringify(['gluten-free']),
+      foodPreferences: JSON.stringify({
+        likes: ['beef', 'pasta', 'cheese'],
+        dislikes: ['green vegetables', 'spicy foods']
+      })
     },
   })
 
@@ -434,8 +480,22 @@ async function main() {
       firstName: 'John',
       lastName: 'Doe',
       phone: '+27 84 321 9876',
-      childName: 'Alex',
-      childDob: new Date('2023-03-10'), // 9 months old
+    },
+  })
+
+  // Create child profile for parent
+  await prisma.childProfile.create({
+    data: {
+      profileId: parentProfile.id,
+      name: 'Alex',
+      dateOfBirth: new Date('2023-03-10'), // 9 months old
+      gender: 'MALE',
+      allergies: JSON.stringify(['eggs']),
+      dietaryRequirements: JSON.stringify(['gluten-free']),
+      foodPreferences: JSON.stringify({
+        likes: ['meat', 'vegetables'],
+        dislikes: ['fruits']
+      })
     },
   })
 
@@ -477,7 +537,7 @@ async function main() {
   console.log('  - manager@tinytastes.co.za (Manager User)')
   console.log('')
   console.log('Customer accounts:')
-  console.log('  - customer@example.com (Jane Smith - Emma, 6 months)')
+  console.log('  - customer@example.com (Jane Smith - Emma 6mo, Sophie 16mo, Oliver 24mo)')
   console.log('  - parent@example.com (John Doe - Alex, 9 months)')
   console.log('')
   console.log('Next steps:')

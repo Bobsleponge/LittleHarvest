@@ -217,7 +217,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
       </div>
 
       {/* Product Details Component */}
-      <ProductDetails product={product} />
+      <ProductDetails product={{
+        ...product,
+        prices: product.prices.map(price => ({
+          ...price,
+          portionSize: {
+            ...price.portionSize,
+            description: price.portionSize.description || undefined
+          }
+        }))
+      }} />
 
       {/* Reviews */}
       <ProductReviews productId={product.id} />

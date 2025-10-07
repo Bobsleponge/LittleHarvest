@@ -68,7 +68,7 @@ class MemoryCache {
   // Clear cache entries that match a pattern
   clearPattern(pattern: string): void {
     const regex = new RegExp(pattern)
-    for (const key of this.cache.keys()) {
+    for (const key of Array.from(this.cache.keys())) {
       if (regex.test(key)) {
         this.cache.delete(key)
       }
@@ -118,7 +118,7 @@ class MemoryCache {
 
   private estimateMemoryUsage(): number {
     let totalSize = 0
-    for (const [key, value] of this.cache.entries()) {
+    for (const [key, value] of Array.from(this.cache.entries())) {
       totalSize += key.length * 2 // UTF-16
       totalSize += JSON.stringify(value).length * 2
     }

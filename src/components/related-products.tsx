@@ -64,7 +64,7 @@ const RelatedProductCard = memo(({ product }: { product: Product }) => {
           </CardTitle>
           <div className="flex items-center justify-between pt-1">
             <div className="text-sm font-bold text-emerald-600">
-              R{product.prices?.[0]?.price || 0}
+              R{product.prices?.[0]?.amountZar || 0}
             </div>
             <Button
               onClick={handleAddToCart}

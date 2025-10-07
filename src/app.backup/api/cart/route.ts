@@ -123,8 +123,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   return perfLogger.timeAsync('cart:add', async () => {
+    const session = await getServerSession(authOptions)
+    
     try {
-      const session = await getServerSession(authOptions)
 
       if (!session?.user?.id) {
         logger.warn('Unauthorized cart access attempt')

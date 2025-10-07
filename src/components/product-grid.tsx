@@ -77,7 +77,7 @@ const ProductCard = memo(({ product }: { product: Product }) => {
           </CardDescription>
           <div className="flex items-center justify-between pt-2">
             <div className="text-lg font-bold text-emerald-600">
-              From R{product.prices?.[0]?.price || 0}
+              From R{product.prices?.[0]?.amountZar || 0}
             </div>
             <Button
               onClick={handleAddToCart}

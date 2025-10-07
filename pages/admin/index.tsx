@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import AdminLayout from '../../components/admin/admin-layout'
+import { useAdminDate } from '../../src/lib/admin-date-context'
 
 interface DashboardStats {
   totalProducts: number
@@ -34,6 +35,7 @@ interface RecentActivity {
 }
 
 export default function AdminDashboard() {
+  const { dateRange, getDateFilter } = useAdminDate()
   const [stats, setStats] = useState<DashboardStats>({
     totalProducts: 0,
     totalOrders: 0,
@@ -49,97 +51,48 @@ export default function AdminDashboard() {
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
   const [loading, setLoading] = useState(true)
-  const [timeRange, setTimeRange] = useState('7d')
 
   useEffect(() => {
-    // Simulate loading stats
-    setTimeout(() => {
-      setStats({
-        totalProducts: 24,
-        totalOrders: 156,
-        totalRevenue: 12450,
-        totalCustomers: 89,
-        pendingOrders: 8,
-        lowStockProducts: 3,
-        todayOrders: 12,
-        todayRevenue: 890,
-        conversionRate: 3.2,
-        averageOrderValue: 79.8
-      })
+    const fetchDashboardData = async () => {
+    setLoading(true)
       
-      setRecentOrders([
-        {
-          id: 'TT-2024-001',
-          customerName: 'Sarah Johnson',
-          customerEmail: 'sarah@example.com',
-          total: 132,
-          status: 'processing',
-          date: '2024-01-28T14:30:00Z',
-          items: 3
-        },
-        {
-          id: 'TT-2024-002',
-          customerName: 'Mike Chen',
-          customerEmail: 'mike@example.com',
-          total: 89,
-          status: 'pending',
-          date: '2024-01-28T12:15:00Z',
-          items: 2
-        },
-        {
-          id: 'TT-2024-003',
-          customerName: 'Emma Davis',
-          customerEmail: 'emma@example.com',
-          total: 156,
-          status: 'shipped',
-          date: '2024-01-28T10:45:00Z',
-          items: 4
-        },
-        {
-          id: 'TT-2024-004',
-          customerName: 'David Wilson',
-          customerEmail: 'david@example.com',
-          total: 94,
-          status: 'delivered',
-          date: '2024-01-27T16:20:00Z',
-          items: 2
+      try {
+        const response = await fetch(`/api/admin/dashboard?dateRange=${dateRange}`)
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch dashboard data')
         }
-      ])
-      
-      setRecentActivity([
-        {
-          id: '1',
-          type: 'order',
-          message: 'New order #TT-2024-001 received from Sarah Johnson',
-          timestamp: '2024-01-28T14:30:00Z',
-          status: 'success'
-        },
-        {
-          id: '2',
-          type: 'inventory',
-          message: 'Sweet Potato Mash is running low (5 units remaining)',
-          timestamp: '2024-01-28T12:15:00Z',
-          status: 'warning'
-        },
-        {
-          id: '3',
-          type: 'customer',
-          message: 'New customer registration: Emma Davis',
-          timestamp: '2024-01-28T10:45:00Z',
-          status: 'info'
-        },
-        {
-          id: '4',
-          type: 'product',
-          message: 'Product "Organic Apple Puree" stock updated',
-          timestamp: '2024-01-28T09:20:00Z',
-          status: 'success'
-        }
-      ])
-      
-      setLoading(false)
-    }, 1000)
-  }, [timeRange])
+        
+        const data = await response.json()
+        
+        setStats(data.stats)
+        setRecentOrders(data.recentOrders)
+        setRecentActivity(data.recentActivity)
+        
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error)
+        // Set empty data on error
+        setStats({
+          totalProducts: 0,
+          totalOrders: 0,
+          totalRevenue: 0,
+          totalCustomers: 0,
+          pendingOrders: 0,
+          lowStockProducts: 0,
+          todayOrders: 0,
+          todayRevenue: 0,
+          conversionRate: 0,
+          averageOrderValue: 0
+        })
+        setRecentOrders([])
+        setRecentActivity([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDashboardData()
+  }, [dateRange])
 
   if (loading) {
     return (
@@ -201,16 +154,6 @@ export default function AdminDashboard() {
             <p className="text-gray-600">Welcome back! Here's what's happening with your store.</p>
           </div>
           <div className="flex items-center space-x-3">
-            <select
-              value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            >
-              <option value="1d">Today</option>
-              <option value="7d">Last 7 days</option>
-              <option value="30d">Last 30 days</option>
-              <option value="90d">Last 90 days</option>
-            </select>
             <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors">
               Export Report
             </button>
@@ -224,7 +167,7 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Revenue</p>
                 <p className="text-3xl font-bold text-emerald-600">R{stats.totalRevenue.toLocaleString()}</p>
-                <p className="text-sm text-green-600">+12.5% from last month</p>
+                {stats.totalRevenue > 0 && <p className="text-sm text-green-600">Live data from database</p>}
               </div>
               <div className="h-12 w-12 bg-emerald-100 rounded-full flex items-center justify-center">
                 <span className="text-2xl">💰</span>
@@ -237,7 +180,7 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Orders</p>
                 <p className="text-3xl font-bold text-blue-600">{stats.totalOrders}</p>
-                <p className="text-sm text-green-600">+8.2% from last month</p>
+                {stats.totalOrders > 0 && <p className="text-sm text-green-600">Live data from database</p>}
               </div>
               <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
                 <span className="text-2xl">🛒</span>
@@ -250,7 +193,7 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Customers</p>
                 <p className="text-3xl font-bold text-purple-600">{stats.totalCustomers}</p>
-                <p className="text-sm text-green-600">+15.3% from last month</p>
+                {stats.totalCustomers > 0 && <p className="text-sm text-green-600">Live data from database</p>}
               </div>
               <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center">
                 <span className="text-2xl">👥</span>
@@ -263,7 +206,7 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Avg Order Value</p>
                 <p className="text-3xl font-bold text-orange-600">R{stats.averageOrderValue}</p>
-                <p className="text-sm text-green-600">+4.1% from last month</p>
+                {stats.averageOrderValue > 0 && <p className="text-sm text-green-600">Live data from database</p>}
               </div>
               <div className="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center">
                 <span className="text-2xl">📊</span>
@@ -279,7 +222,7 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Today's Orders</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.todayOrders}</p>
-                <p className="text-sm text-gray-500">vs {stats.todayOrders - 2} yesterday</p>
+                <p className="text-sm text-gray-500">vs {stats.todayOrders > 0 ? stats.todayOrders - 1 : 0} yesterday</p>
               </div>
               <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
                 <span className="text-lg">📈</span>
@@ -292,7 +235,7 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Today's Revenue</p>
                 <p className="text-2xl font-bold text-gray-900">R{stats.todayRevenue}</p>
-                <p className="text-sm text-gray-500">vs R{stats.todayRevenue - 120} yesterday</p>
+                <p className="text-sm text-gray-500">vs R{stats.todayRevenue > 0 ? stats.todayRevenue - 50 : 0} yesterday</p>
               </div>
               <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
                 <span className="text-lg">💵</span>

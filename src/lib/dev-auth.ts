@@ -18,7 +18,7 @@ const DevEmailProvider = {
     from: process.env.EMAIL_FROM,
   }),
   // Override the sendVerificationRequest to auto-verify in development
-  sendVerificationRequest: async ({ identifier: email, url, provider }) => {
+  sendVerificationRequest: async ({ identifier: email, url, provider }: { identifier: string, url: string, provider: any }) => {
     // In development, we'll just log the verification URL
     // In a real app, this would send an actual email
     console.log(`🔗 Development login link for ${email}: ${url}`)
@@ -54,8 +54,10 @@ export const devAuthOptions: NextAuthOptions = {
         
         if (user) {
           session.user.id = user.id
-          session.user.role = user.role
-          session.user.profile = user.profile
+          session.user.role = user.role as 'ADMIN' | 'CUSTOMER'
+          session.user.profile = user.profile ? {
+            ...user.profile
+          } : undefined
         }
       }
       return session

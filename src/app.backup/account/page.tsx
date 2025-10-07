@@ -282,7 +282,7 @@ export default function AccountPage() {
               <div className="flex items-center justify-between">
                 <span className="text-readable-white">Member Since</span>
                 <span className="text-readable-white text-sm">
-                  {session.user?.createdAt ? new Date(session.user.createdAt).toLocaleDateString() : 'N/A'}
+                  {session.user?.profile?.createdAt ? new Date(session.user.profile.createdAt).toLocaleDateString() : 'N/A'}
                 </span>
               </div>
             </CardContent>

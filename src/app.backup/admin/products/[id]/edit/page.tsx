@@ -372,8 +372,8 @@ export default function AdminProductEditPage() {
             </CardHeader>
             <CardContent>
               <FileUpload
-                onUpload={(url) => handleInputChange('imageUrl', url)}
-                currentImage={formData.imageUrl}
+                onFileSelect={(url) => handleInputChange('imageUrl', url)}
+                currentImageUrl={formData.imageUrl}
               />
             </CardContent>
           </Card>

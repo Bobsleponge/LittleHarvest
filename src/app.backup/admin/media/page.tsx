@@ -86,25 +86,23 @@ export default function AdminMediaPage() {
     }
   }
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (fileUrl: string) => {
     try {
       setUploading(true)
       
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        // Add the new file to the list
-        setFiles(prev => [result.file, ...prev])
-      } else {
-        alert('Failed to upload file')
+      // Create a mock file object from the URL
+      const mockFile: MediaFile = {
+        id: Date.now().toString(),
+        name: fileUrl.split('/').pop() || 'uploaded-file',
+        url: fileUrl,
+        type: 'image/jpeg', // Default type
+        size: 0,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: 'admin@tinytastes.co.za'
       }
+      
+      // Add the new file to the list
+      setFiles(prev => [mockFile, ...prev])
     } catch (error) {
       console.error('Error uploading file:', error)
       alert('Failed to upload file')
@@ -178,8 +176,6 @@ export default function AdminMediaPage() {
         <CardContent>
           <FileUpload
             onFileSelect={handleFileUpload}
-            accept="image/*,.pdf,.doc,.docx"
-            maxSize={5 * 1024 * 1024} // 5MB
             disabled={uploading}
           />
           {uploading && (

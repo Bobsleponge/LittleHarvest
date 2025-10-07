@@ -1,106 +1,253 @@
 import { NextApiRequest, NextApiResponse } from 'next'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '../../../src/lib/auth'
+import { prisma } from '../../../src/lib/prisma'
+import { logger } from '../../../src/lib/logger'
+import { withAPIRateLimit, RATE_LIMITS } from '../../../src/lib/rate-limit'
+import { withCSRFProtection } from '../../../src/lib/csrf'
 
-// In-memory storage (same as in index.ts - in production, use a shared database)
-let orders: any[] = [
-  {
-    id: '1',
-    orderNumber: 'TT-2024-001',
-    customerName: 'Sarah Johnson',
-    customerEmail: 'sarah@example.com',
-    date: '2024-01-15',
-    status: 'delivered',
-    total: 132,
-    items: [
-      { id: '1', name: 'Organic Apple Puree', quantity: 2, price: 45, image: '🍎' },
-      { id: '2', name: 'Sweet Potato Mash', quantity: 1, price: 42, image: '🍠' }
-    ],
-    deliveryAddress: '123 Main St, Cape Town, 8001',
-    deliveryDate: '2024-01-16',
-    deliveryTime: 'morning',
-    paymentMethod: 'card'
-  },
-  {
-    id: '2',
-    orderNumber: 'TT-2024-002',
-    customerName: 'Mike Chen',
-    customerEmail: 'mike@example.com',
-    date: '2024-01-20',
-    status: 'shipped',
-    total: 89,
-    items: [
-      { id: '3', name: 'Banana & Oatmeal', quantity: 1, price: 48, image: '🍌' },
-      { id: '4', name: 'Carrot & Pea Mix', quantity: 1, price: 44, image: '🥕' }
-    ],
-    deliveryAddress: '456 Oak Ave, Cape Town, 8002',
-    deliveryDate: '2024-01-22',
-    deliveryTime: 'afternoon',
-    paymentMethod: 'cash'
-  },
-  {
-    id: '3',
-    orderNumber: 'TT-2024-003',
-    customerName: 'Emma Davis',
-    customerEmail: 'emma@example.com',
-    date: '2024-01-25',
-    status: 'processing',
-    total: 156,
-    items: [
-      { id: '5', name: 'Chicken & Rice', quantity: 2, price: 52, image: '🍗' },
-      { id: '6', name: 'Mixed Berry Blend', quantity: 1, price: 46, image: '🫐' }
-    ],
-    deliveryAddress: '789 Pine St, Cape Town, 8003',
-    deliveryDate: '2024-01-27',
-    deliveryTime: 'evening',
-    paymentMethod: 'card'
-  },
-  {
-    id: '4',
-    orderNumber: 'TT-2024-004',
-    customerName: 'David Wilson',
-    customerEmail: 'david@example.com',
-    date: '2024-01-28',
-    status: 'pending',
-    total: 94,
-    items: [
-      { id: '1', name: 'Organic Apple Puree', quantity: 1, price: 45, image: '🍎' },
-      { id: '3', name: 'Banana & Oatmeal', quantity: 1, price: 48, image: '🍌' }
-    ],
-    deliveryAddress: '321 Elm St, Cape Town, 8004',
-    deliveryDate: '2024-01-30',
-    deliveryTime: 'morning',
-    paymentMethod: 'card'
+export default withCSRFProtection(withAPIRateLimit(
+  RATE_LIMITS.GENERAL,
+  (req) => req.user?.id || req.ip
+)(async function handler(req: NextApiRequest, res: NextApiResponse) {
+  try {
+    const session = await getServerSession(req, res, authOptions)
+    
+    if (!session?.user?.id) {
+      return res.status(401).json({ error: 'Authentication required' })
+    }
+
+    const userId = session.user.id
+    const { id } = req.query
+
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({ error: 'Order ID is required' })
+    }
+
+    switch (req.method) {
+      case 'GET':
+        return await getOrder(req, res, userId, id)
+      case 'PUT':
+        return await updateOrder(req, res, userId, id)
+      default:
+        return res.status(405).json({ error: 'Method not allowed' })
+    }
+  } catch (error) {
+    logger.error('Order API error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      method: req.method,
+      orderId: req.query.id
+    })
+    return res.status(500).json({ error: 'Internal server error' })
   }
-]
+}))
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { id } = req.query
+async function getOrder(req: NextApiRequest, res: NextApiResponse, userId: string, orderId: string) {
+  try {
+    const order = await prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              include: {
+                ageGroup: true,
+                texture: true
+              }
+            },
+            portionSize: true,
+            package: true
+          }
+        },
+        address: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    })
 
-  if (req.method === 'PUT') {
-    // Update order status
-    const { status } = req.body
-
-    if (!status || !['pending', 'processing', 'shipped', 'delivered', 'cancelled'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' })
-    }
-
-    const orderIndex = orders.findIndex(order => order.id === id)
-    if (orderIndex === -1) {
-      return res.status(404).json({ error: 'Order not found' })
-    }
-
-    orders[orderIndex].status = status
-
-    res.status(200).json(orders[orderIndex])
-  } else if (req.method === 'GET') {
-    // Get specific order
-    const order = orders.find(order => order.id === id)
     if (!order) {
       return res.status(404).json({ error: 'Order not found' })
     }
 
-    res.status(200).json(order)
-  } else {
-    res.setHeader('Allow', ['GET', 'PUT'])
-    res.status(405).end(`Method ${req.method} Not Allowed`)
+    // Transform order to match frontend format
+    const transformedOrder = {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.user.name,
+      customerEmail: order.user.email,
+      date: order.createdAt,
+      status: order.status.toLowerCase(),
+      total: order.totalZar,
+      items: order.items.map(item => ({
+        id: item.id,
+        name: item.product.name,
+        quantity: item.quantity,
+        price: item.unitPriceZar,
+        image: item.product.imageUrl || '🍎'
+      })),
+      deliveryAddress: order.address ? 
+        `${order.address.street}, ${order.address.city}, ${order.address.province} ${order.address.postalCode}` : 
+        'No address provided',
+      deliveryDate: order.deliveryDate || order.createdAt,
+      deliveryTime: '9:00 AM - 5:00 PM',
+      paymentMethod: 'Credit Card'
+    }
+
+    logger.info('Order retrieved', { userId, orderId })
+
+    res.status(200).json(transformedOrder)
+
+  } catch (error) {
+    logger.error('Get order error', { 
+      error: error instanceof Error ? error.message : 'Unknown error', 
+      userId,
+      orderId 
+    })
+    res.status(500).json({ error: 'Failed to retrieve order' })
+  }
+}
+
+async function updateOrder(req: NextApiRequest, res: NextApiResponse, userId: string, orderId: string) {
+  try {
+    const { status } = req.body
+
+    if (!status || !['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'].includes(status.toUpperCase())) {
+      return res.status(400).json({ error: 'Invalid status' })
+    }
+
+    const order = await prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId
+      },
+      include: {
+        items: true
+      }
+    })
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' })
+    }
+
+    // If order is being cancelled, restore inventory
+    if (status.toUpperCase() === 'CANCELLED' && order.status !== 'CANCELLED') {
+      for (const item of order.items) {
+        const inventory = await prisma.inventory.findUnique({
+          where: {
+            productId_portionSizeId: {
+              productId: item.productId,
+              portionSizeId: item.portionSizeId
+            }
+          }
+        })
+
+        if (inventory) {
+          await prisma.inventory.update({
+            where: {
+              productId_portionSizeId: {
+                productId: item.productId,
+                portionSizeId: item.portionSizeId
+              }
+            },
+            data: {
+              currentStock: {
+                increment: item.quantity
+              },
+              reservedStock: {
+                decrement: item.quantity
+              },
+              updatedAt: new Date()
+            }
+          })
+
+          logger.info('Inventory restored due to order cancellation', {
+            productId: item.productId,
+            portionSizeId: item.portionSizeId,
+            quantityRestored: item.quantity,
+            orderId: order.id
+          })
+        }
+      }
+    }
+
+    const updatedOrder = await prisma.order.update({
+      where: { id: orderId },
+      data: { 
+        status: status.toUpperCase(),
+        updatedAt: new Date()
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              include: {
+                ageGroup: true,
+                texture: true
+              }
+            },
+            portionSize: true,
+            package: true
+          }
+        },
+        address: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    })
+
+    // Transform updated order to match frontend format
+    const transformedOrder = {
+      id: updatedOrder.id,
+      orderNumber: updatedOrder.orderNumber,
+      customerName: updatedOrder.user.name,
+      customerEmail: updatedOrder.user.email,
+      date: updatedOrder.createdAt,
+      status: updatedOrder.status.toLowerCase(),
+      total: updatedOrder.totalZar,
+      items: updatedOrder.items.map(item => ({
+        id: item.id,
+        name: item.product.name,
+        quantity: item.quantity,
+        price: item.unitPriceZar,
+        image: item.product.imageUrl || '🍎'
+      })),
+      deliveryAddress: updatedOrder.address ? 
+        `${updatedOrder.address.street}, ${updatedOrder.address.city}, ${updatedOrder.address.province} ${updatedOrder.address.postalCode}` : 
+        'No address provided',
+      deliveryDate: updatedOrder.deliveryDate || updatedOrder.createdAt,
+      deliveryTime: '9:00 AM - 5:00 PM',
+      paymentMethod: 'Credit Card'
+    }
+
+    logger.info('Order updated', { 
+      userId, 
+      orderId, 
+      oldStatus: order.status, 
+      newStatus: updatedOrder.status 
+    })
+
+    res.status(200).json(transformedOrder)
+
+  } catch (error) {
+    logger.error('Update order error', { 
+      error: error instanceof Error ? error.message : 'Unknown error', 
+      userId,
+      orderId,
+      body: req.body 
+    })
+    res.status(500).json({ error: 'Failed to update order' })
   }
 }

@@ -14,8 +14,6 @@ declare module 'next-auth' {
         firstName: string
         lastName: string
         phone: string | null
-        childName: string | null
-        childDob: string | null
         createdAt: Date
         updatedAt: Date
       }

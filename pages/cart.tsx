@@ -1,77 +1,180 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
+import Navigation from '../src/components/navigation'
+import Footer from '../src/components/footer'
+import { useCart } from '../src/lib/cart-context'
 
 interface CartItem {
   id: string
+  product: {
+    id: string
+    name: string
+    slug: string
+    description: string
+    imageUrl?: string
+    ageGroup: string
+    texture: string
+    contains?: string
+    mayContain?: string
+  }
+  portionSize: {
+  id: string
   name: string
-  price: number
+    description: string
+    measurement: string
+  }
   quantity: number
-  image: string
-  ageGroup: string
+  unitPrice: number
+  lineTotal: number
+  addedAt: string
 }
 
 export default function CartPage() {
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      id: '1',
-      name: 'Organic Apple Puree',
-      price: 45,
-      quantity: 2,
-      image: '🍎',
-      ageGroup: '6-8 months'
-    },
-    {
-      id: '2',
-      name: 'Sweet Potato Mash',
-      price: 42,
-      quantity: 1,
-      image: '🍠',
-      ageGroup: '6-8 months'
-    }
-  ])
+  const { data: session, status } = useSession()
+  const { cartItems, isLoading, refreshCart } = useCart()
+  const [error, setError] = useState<string | null>(null)
 
-  const updateQuantity = (id: string, newQuantity: number) => {
+  // Update item quantity
+  const updateQuantity = async (id: string, newQuantity: number) => {
     if (newQuantity <= 0) {
       removeItem(id)
       return
     }
-    setCartItems(items => 
-      items.map(item => 
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      )
-    )
+
+    try {
+      const response = await fetch('/api/cart', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          itemId: id,
+          quantity: newQuantity
+        })
+      })
+
+      if (response.ok) {
+        // Refresh cart items
+        await refreshCart()
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to update quantity: ${errorData.error}`)
+      }
+    } catch (error) {
+      console.error('Error updating quantity:', error)
+      alert('Failed to update quantity')
+    }
   }
 
-  const removeItem = (id: string) => {
-    setCartItems(items => items.filter(item => item.id !== id))
+  // Remove item from cart
+  const removeItem = async (id: string) => {
+    try {
+      const response = await fetch('/api/cart', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          itemId: id
+        })
+      })
+
+      if (response.ok) {
+        // Refresh cart items
+        await refreshCart()
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to remove item: ${errorData.error}`)
+      }
+    } catch (error) {
+      console.error('Error removing item:', error)
+      alert('Failed to remove item')
+    }
   }
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  // Load cart items when session changes
+  useEffect(() => {
+    if (session) {
+      refreshCart()
+    }
+  }, [session, status, refreshCart])
+
+  const subtotal = cartItems.reduce((sum, item) => sum + item.lineTotal, 0)
   const shipping = subtotal > 200 ? 0 : 25
   const total = subtotal + shipping
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Link href="/" className="flex items-center space-x-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">TT</span>
-                </div>
-                <span className="font-bold text-2xl text-gray-800">Tiny Tastes</span>
-              </Link>
+  // Show loading state
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your cart...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show login required
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Link href="/" className="flex items-center space-x-3">
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center">
+                    <span className="text-white font-bold text-lg">TT</span>
+                  </div>
+                  <span className="font-bold text-2xl text-gray-800">Tiny Tastes</span>
+                </Link>
+              </div>
+              <nav className="hidden md:flex items-center space-x-8">
+                <Link href="/products" className="text-gray-600 hover:text-gray-800 font-semibold">Products</Link>
+                <Link href="/cart" className="text-emerald-600 font-semibold">Cart</Link>
+                <Link href="/dev-login" className="text-gray-600 hover:text-gray-800 font-semibold">Login</Link>
+              </nav>
             </div>
-            <nav className="hidden md:flex items-center space-x-8">
-              <Link href="/products" className="text-gray-600 hover:text-gray-800 font-semibold">Products</Link>
-              <Link href="/cart" className="text-emerald-600 font-semibold">Cart</Link>
-              <Link href="/dev-login" className="text-gray-600 hover:text-gray-800 font-semibold">Login</Link>
-            </nav>
+          </div>
+        </header>
+
+        <div className="container mx-auto px-4 py-8">
+          <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
+            <div className="text-6xl mb-4">🔒</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Login Required</h3>
+            <p className="text-gray-600 mb-6">Please log in to view your cart</p>
+            <Link 
+              href="/dev-login"
+              className="bg-emerald-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
+            >
+              Login
+            </Link>
           </div>
         </div>
-      </header>
+      </div>
+    )
+  }
+
+  // Show cart loading state (when session exists but cart is still loading)
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your cart...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+        <Navigation currentPage="cart" />
 
       <div className="container mx-auto px-4 py-8">
         {/* Page Header */}
@@ -80,7 +183,20 @@ export default function CartPage() {
           <p className="text-gray-600">Review your items before checkout</p>
         </div>
 
-        {cartItems.length === 0 ? (
+        {error ? (
+          /* Error State */
+          <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
+            <div className="text-6xl mb-4">❌</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Cart</h3>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <button 
+              onClick={refreshCart}
+              className="bg-emerald-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        ) : cartItems.length === 0 ? (
           /* Empty Cart */
           <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
             <div className="text-6xl mb-4">🛒</div>
@@ -105,11 +221,31 @@ export default function CartPage() {
                   {cartItems.map((item) => (
                     <div key={item.id} className="p-6">
                       <div className="flex items-center space-x-4">
-                        <div className="text-4xl">{item.image}</div>
+                        <div className="text-4xl">
+                          {item.product.imageUrl ? (
+                            <img 
+                              src={item.product.imageUrl} 
+                              alt={item.product.name}
+                              className="w-16 h-16 object-cover rounded-lg"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                                const nextElement = e.currentTarget.nextElementSibling as HTMLElement
+                                if (nextElement) {
+                                  nextElement.style.display = 'block'
+                                }
+                              }}
+                            />
+                          ) : null}
+                          <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center text-2xl" style={{ display: item.product.imageUrl ? 'none' : 'flex' }}>
+                            🍼
+                          </div>
+                        </div>
                         <div className="flex-1">
-                          <h3 className="text-lg font-medium text-gray-900">{item.name}</h3>
-                          <p className="text-sm text-gray-600">Age: {item.ageGroup}</p>
-                          <p className="text-lg font-semibold text-emerald-600">R{item.price}</p>
+                          <h3 className="text-lg font-medium text-gray-900">{item.product.name}</h3>
+                          <p className="text-sm text-gray-600">Age: {item.product.ageGroup}</p>
+                          <p className="text-sm text-gray-600">Texture: {item.product.texture}</p>
+                          <p className="text-sm text-gray-600">Portion: {item.portionSize.name}</p>
+                          <p className="text-lg font-semibold text-emerald-600">R{item.unitPrice}</p>
                         </div>
                         <div className="flex items-center space-x-3">
                           <button
@@ -128,7 +264,7 @@ export default function CartPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-lg font-semibold text-gray-900">
-                            R{item.price * item.quantity}
+                            R{item.lineTotal}
                           </p>
                           <button
                             onClick={() => removeItem(item.id)}
@@ -200,6 +336,9 @@ export default function CartPage() {
           </div>
         )}
       </div>
+      
+      {/* Footer */}
+      <Footer />
     </div>
   )
 }

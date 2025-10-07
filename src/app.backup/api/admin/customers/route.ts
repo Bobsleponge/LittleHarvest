@@ -29,7 +29,11 @@ export async function GET(request: NextRequest) {
             createdAt: 'desc'
           }
         },
-        address: true
+        profile: {
+          include: {
+            addresses: true
+          }
+        }
       },
       orderBy: {
         createdAt: 'desc'
@@ -41,11 +45,11 @@ export async function GET(request: NextRequest) {
       id: customer.id,
       name: customer.name,
       email: customer.email,
-      phone: customer.phone,
+      phone: customer.profile?.phone,
       role: customer.role,
       createdAt: customer.createdAt.toISOString(),
-      lastLoginAt: customer.lastLoginAt?.toISOString(),
-      address: customer.address,
+      lastLoginAt: null, // This field doesn't exist in the current schema
+      address: customer.profile?.addresses?.[0],
       totalOrders: customer.orders.length,
       totalSpent: customer.orders.reduce((sum, order) => sum + order.totalZar, 0),
       orders: customer.orders

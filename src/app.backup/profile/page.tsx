@@ -265,8 +265,8 @@ export default function ProfilePage() {
                   <div>
                     <Label className="text-sm text-muted-foreground">Member Since</Label>
                     <p className="font-medium">
-                      {session?.user?.createdAt ? 
-                        new Date(session.user.createdAt).toLocaleDateString() : 
+                      {session?.user?.profile?.createdAt ? 
+                        new Date(session.user.profile.createdAt).toLocaleDateString() : 
                         'N/A'
                       }
                     </p>

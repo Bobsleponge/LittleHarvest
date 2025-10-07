@@ -210,10 +210,7 @@ export async function getWeeklyRestockItems(): Promise<any[]> {
           gt: 0
         },
         currentStock: {
-          lt: {
-            // This would need to be calculated in the database
-            // For now, we'll get items with low stock relative to their limit
-          }
+          lt: 10 // Low stock threshold
         }
       },
       include: {

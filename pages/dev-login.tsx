@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
+import { signIn } from 'next-auth/react'
+import Navigation from '../src/components/navigation'
 
 const adminAccounts = [
   { email: 'admin@tinytastes.co.za', name: 'Admin User', role: 'ADMIN' },
@@ -22,7 +24,7 @@ export default function DevLoginPage() {
       setError(null)
       setSuccess(null)
 
-      // Call the dev-login API to create/get the user
+      // First, create/get the user via dev-login API
       const response = await fetch('/api/dev-login', {
         method: 'POST',
         headers: {
@@ -33,23 +35,41 @@ export default function DevLoginPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        setError(errorData.error || 'Login failed. Please try again.')
+        setError(errorData.error || 'Failed to create user. Please try again.')
         return
       }
 
       const data = await response.json()
 
       if (data.success) {
-        setSuccess(`Successfully logged in as ${data.user.name} (${data.user.role})`)
+        setSuccess(`User created successfully! Now signing in...`)
         
-        // Redirect based on role
-        setTimeout(() => {
-          if (data.user.role === 'ADMIN') {
-            window.location.href = '/admin'
-          } else {
-            window.location.href = '/products'
-          }
-        }, 1500)
+        // Now sign in with NextAuth using dev-login provider
+        console.log('Attempting to sign in with NextAuth...')
+        const result = await signIn('dev-login', {
+          email: email,
+          redirect: false,
+        })
+
+        console.log('SignIn result:', result)
+
+        if (result?.error) {
+          console.error('SignIn error:', result.error)
+          setError(`Authentication failed: ${result.error}. Please try again.`)
+        } else if (result?.ok) {
+          setSuccess(`Successfully logged in as ${data.user.name} (${data.user.role})`)
+          
+          // Redirect based on role
+          setTimeout(() => {
+            if (data.user.role === 'ADMIN') {
+              window.location.href = '/admin'
+            } else {
+              window.location.href = '/products'
+            }
+          }, 1500)
+        } else {
+          setError('Authentication failed: Unknown error. Please try again.')
+        }
       }
     } catch (err) {
       console.error('Login error:', err)
@@ -60,17 +80,13 @@ export default function DevLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 py-12">
-      <div className="container mx-auto px-4">
+    <div className="min-h-screen bg-gray-50">
+      <Navigation />
+      
+      <div className="container mx-auto px-4 py-12">
         <div className="max-w-2xl mx-auto">
-          {/* Header */}
+          {/* Page Header */}
           <div className="text-center mb-8">
-            <div className="flex items-center justify-center space-x-3 mb-4">
-              <div className="h-12 w-12 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center">
-                <span className="text-white font-bold text-xl">TT</span>
-              </div>
-              <span className="font-bold text-3xl text-gray-800">Tiny Tastes</span>
-            </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Development Login</h1>
             <p className="text-gray-600">Quick login for development and testing</p>
           </div>

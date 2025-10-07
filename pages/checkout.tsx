@@ -1,5 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
+import Navigation from '../src/components/navigation'
+import Footer from '../src/components/footer'
+import { useCart } from '../src/lib/cart-context'
 
 interface OrderItem {
   id: string
@@ -9,7 +13,12 @@ interface OrderItem {
   image: string
 }
 
+// CartItem interface is imported from cart-context
+
 export default function CheckoutPage() {
+  const { data: session, status } = useSession()
+  const { cartItems, total, subtotal, shipping } = useCart()
+  
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -20,34 +29,48 @@ export default function CheckoutPage() {
     postalCode: '',
     deliveryDate: '',
     deliveryTime: '',
-    paymentMethod: 'card',
+    paymentMethod: 'eft',
     specialInstructions: ''
   })
 
   const [loading, setLoading] = useState(false)
   const [orderPlaced, setOrderPlaced] = useState(false)
+  const [orderReference, setOrderReference] = useState('')
+  const [orderNumber, setOrderNumber] = useState('')
 
-  // Mock order items
-  const orderItems: OrderItem[] = [
-    {
-      id: '1',
-      name: 'Organic Apple Puree',
-      price: 45,
-      quantity: 2,
-      image: '🍎'
-    },
-    {
-      id: '2',
-      name: 'Sweet Potato Mash',
-      price: 42,
-      quantity: 1,
-      image: '🍠'
+  // Generate unique reference number for EFT payments
+  const generateReferenceNumber = () => {
+    const timestamp = Date.now().toString().slice(-6)
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase()
+    return `TT${timestamp}${random}`
+  }
+
+  // Pre-fill form with user data if logged in
+  useEffect(() => {
+    if (session?.user) {
+      setFormData(prev => ({
+        ...prev,
+        firstName: session.user.name?.split(' ')[0] || '',
+        lastName: session.user.name?.split(' ').slice(1).join(' ') || '',
+        email: session.user.email || '',
+        phone: '',
+        address: '',
+        city: '',
+        postalCode: '',
+        deliveryDate: '',
+        deliveryTime: '',
+        paymentMethod: 'eft',
+        specialInstructions: ''
+      }))
     }
-  ]
+  }, [session])
 
-  const subtotal = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-  const shipping = subtotal > 200 ? 0 : 25
-  const total = subtotal + shipping
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      window.location.href = '/dev-login'
+    }
+  }, [status])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -58,32 +81,93 @@ export default function CheckoutPage() {
     e.preventDefault()
     setLoading(true)
     
-    // Simulate order processing
-    setTimeout(() => {
+    try {
+      const referenceNumber = generateReferenceNumber()
+      setOrderReference(referenceNumber)
+      
+      // Create order via API
+      const orderData = {
+        customerInfo: {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone
+        },
+        deliveryInfo: {
+          address: formData.address,
+          city: formData.city,
+          postalCode: formData.postalCode,
+          deliveryDate: formData.deliveryDate,
+          deliveryTime: formData.deliveryTime,
+          specialInstructions: formData.specialInstructions
+        },
+        paymentInfo: {
+          method: formData.paymentMethod,
+          referenceNumber: referenceNumber,
+          amount: total
+        },
+        items: cartItems.map(item => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+          notes: item.notes,
+          childProfileId: item.childProfileId,
+          shoppingMode: item.shoppingMode
+        }))
+      }
+
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData)
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setOrderNumber(result.orderNumber)
+        setOrderPlaced(true)
+      } else {
+        throw new Error('Failed to create order')
+      }
+    } catch (error) {
+      console.error('Order creation failed:', error)
+      alert('Failed to place order. Please try again.')
+    } finally {
       setLoading(false)
-      setOrderPlaced(true)
-    }, 2000)
+    }
   }
 
-  if (orderPlaced) {
+  // Show loading if checking authentication
+  if (status === 'loading') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-sm border p-8 max-w-md w-full text-center">
-          <div className="text-6xl mb-4">✅</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Order Placed!</h1>
-          <p className="text-gray-600 mb-6">
-            Thank you for your order. We'll send you a confirmation email shortly.
-          </p>
-          <div className="space-y-3">
-            <Link 
-              href="/orders"
-              className="w-full bg-emerald-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-emerald-700 transition-colors block"
-            >
-              View Orders
-            </Link>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading checkout...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Redirect if not authenticated
+  if (status === 'unauthenticated') {
+    return null
+  }
+
+  // Show empty cart message
+  if (cartItems.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navigation currentPage="checkout" />
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">🛒</div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Your cart is empty</h1>
+            <p className="text-gray-600 mb-4">Add some products to your cart before checking out.</p>
             <Link 
               href="/products"
-              className="w-full border border-emerald-600 text-emerald-600 py-3 px-4 rounded-lg font-medium hover:bg-emerald-50 transition-colors block"
+              className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors"
             >
               Continue Shopping
             </Link>
@@ -93,28 +177,88 @@ export default function CheckoutPage() {
     )
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Link href="/" className="flex items-center space-x-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">TT</span>
+  if (orderPlaced) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navigation currentPage="checkout" />
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
+              <div className="text-6xl mb-4">✅</div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Order Placed Successfully!</h1>
+              <p className="text-gray-600 mb-6">
+                Thank you for your order. We'll send you a confirmation email shortly.
+              </p>
+              
+              {/* Order Details */}
+              <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
+                <h3 className="font-semibold text-gray-900 mb-4">Order Details</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Order Number:</span>
+                    <span className="font-medium">{orderNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Amount:</span>
+                    <span className="font-medium">R{total}</span>
+                  </div>
+                  {formData.paymentMethod === 'eft' && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Payment Method:</span>
+                        <span className="font-medium">EFT Transfer</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Reference Number:</span>
+                        <span className="font-medium text-emerald-600">{orderReference}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
-                <span className="font-bold text-2xl text-gray-800">Tiny Tastes</span>
-              </Link>
+              </div>
+
+              {/* EFT Payment Instructions */}
+              {formData.paymentMethod === 'eft' && (
+                <div className="bg-blue-50 rounded-lg p-6 mb-6 text-left">
+                  <h3 className="font-semibold text-blue-900 mb-3">💳 EFT Payment Instructions</h3>
+                  <div className="space-y-2 text-sm text-blue-800">
+                    <p><strong>Bank:</strong> Standard Bank</p>
+                    <p><strong>Account Name:</strong> Tiny Tastes (Pty) Ltd</p>
+                    <p><strong>Account Number:</strong> 1234567890</p>
+                    <p><strong>Branch Code:</strong> 051001</p>
+                    <p><strong>Reference:</strong> <span className="font-mono font-bold">{orderReference}</span></p>
+                    <p className="mt-3 text-blue-700">
+                      <strong>Important:</strong> Please use the exact reference number above when making your payment. 
+                      This ensures your payment is matched to your order.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <Link 
+                  href="/orders"
+                  className="w-full bg-emerald-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-emerald-700 transition-colors block"
+                >
+                  View Orders
+                </Link>
+                <Link 
+                  href="/products"
+                  className="w-full border border-emerald-600 text-emerald-600 py-3 px-4 rounded-lg font-medium hover:bg-emerald-50 transition-colors block"
+                >
+                  Continue Shopping
+                </Link>
+              </div>
             </div>
-            <nav className="hidden md:flex items-center space-x-8">
-              <Link href="/products" className="text-gray-600 hover:text-gray-800 font-semibold">Products</Link>
-              <Link href="/cart" className="text-gray-600 hover:text-gray-800 font-semibold">Cart</Link>
-              <Link href="/dev-login" className="text-gray-600 hover:text-gray-800 font-semibold">Login</Link>
-            </nav>
           </div>
         </div>
-      </header>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navigation currentPage="checkout" />
 
       <div className="container mx-auto px-4 py-8">
         {/* Page Header */}
@@ -264,28 +408,34 @@ export default function CheckoutPage() {
               {/* Payment Method */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method *</label>
-                <div className="space-y-2">
-                  <label className="flex items-center">
+                <div className="space-y-3">
+                  <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
                     <input
                       type="radio"
                       name="paymentMethod"
-                      value="card"
-                      checked={formData.paymentMethod === 'card'}
+                      value="eft"
+                      checked={formData.paymentMethod === 'eft'}
                       onChange={handleInputChange}
-                      className="mr-2"
+                      className="mr-3"
                     />
-                    Credit/Debit Card
+                    <div>
+                      <div className="font-medium">EFT Transfer</div>
+                      <div className="text-sm text-gray-600">Pay via bank transfer with unique reference number</div>
+                    </div>
                   </label>
-                  <label className="flex items-center">
+                  <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
                     <input
                       type="radio"
                       name="paymentMethod"
                       value="cash"
                       checked={formData.paymentMethod === 'cash'}
                       onChange={handleInputChange}
-                      className="mr-2"
+                      className="mr-3"
                     />
-                    Cash on Delivery
+                    <div>
+                      <div className="font-medium">Cash on Delivery</div>
+                      <div className="text-sm text-gray-600">Pay when your order is delivered</div>
+                    </div>
                   </label>
                 </div>
               </div>
@@ -306,16 +456,34 @@ export default function CheckoutPage() {
             
             {/* Order Items */}
             <div className="space-y-4 mb-6">
-              {orderItems.map((item) => (
-                <div key={item.id} className="flex items-center space-x-3">
-                  <div className="text-2xl">{item.image}</div>
-                  <div className="flex-1">
-                    <h3 className="font-medium text-gray-900">{item.name}</h3>
-                    <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
+              {cartItems.map((item) => {
+                return (
+                  <div key={item.id} className="flex items-center space-x-3">
+                    <div className="text-2xl">
+                      {item.product.imageUrl ? (
+                        <img 
+                          src={item.product.imageUrl} 
+                          alt={item.product.name}
+                          className="w-8 h-8 rounded object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none'
+                            e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                          }}
+                        />
+                      ) : null}
+                      <span className="text-2xl hidden">🍎</span>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-medium text-gray-900">{item.product.name}</h3>
+                      <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
+                      {item.notes && (
+                        <p className="text-xs text-gray-500">Note: {item.notes}</p>
+                      )}
+                    </div>
+                    <span className="font-medium">R{item.lineTotal}</span>
                   </div>
-                  <span className="font-medium">R{item.price * item.quantity}</span>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             {/* Totals */}
@@ -336,16 +504,22 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* Security Notice */}
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-              <h3 className="font-medium text-blue-800 mb-2">🔒 Secure Checkout</h3>
-              <p className="text-sm text-blue-700">
-                Your payment information is encrypted and secure. We never store your card details.
+            {/* Payment Notice */}
+            <div className="mt-6 p-4 bg-emerald-50 rounded-lg">
+              <h3 className="font-medium text-emerald-800 mb-2">💳 Payment Information</h3>
+              <p className="text-sm text-emerald-700">
+                {formData.paymentMethod === 'eft' 
+                  ? 'You will receive a unique reference number for EFT payment after placing your order.'
+                  : 'Payment will be collected when your order is delivered.'
+                }
               </p>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Footer */}
+      <Footer />
     </div>
   )
 }

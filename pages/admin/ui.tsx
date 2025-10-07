@@ -1,0 +1,723 @@
+import { useState, useEffect } from 'react'
+import AdminLayout from '../../components/admin/admin-layout'
+import { Button } from '../../src/components/ui/button'
+import { Input } from '../../src/components/ui/input'
+import { Label } from '../../src/components/ui/label'
+import { Textarea } from '../../src/components/ui/textarea'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../src/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../src/components/ui/tabs'
+import { Switch } from '../../src/components/ui/switch'
+import { FileUpload } from '../../src/components/file-upload'
+import { 
+  Palette, 
+  Type, 
+  Layout, 
+  Upload, 
+  Save, 
+  RotateCcw, 
+  Eye, 
+  Settings,
+  Globe,
+  Phone,
+  Mail,
+  MapPin,
+  Facebook,
+  Instagram,
+  Twitter,
+  Linkedin,
+  AlertCircle,
+  CheckCircle
+} from 'lucide-react'
+
+interface UISettings {
+  brand: {
+    siteName: string
+    tagline: string
+    logoUrl: string
+    faviconUrl: string
+  }
+  colors: {
+    primary: string
+    secondary: string
+    accent: string
+    background: string
+    text: string
+    muted: string
+  }
+  typography: {
+    fontFamily: string
+    headingFont: string
+  }
+  layout: {
+    headerHeight: number
+    sidebarWidth: number
+  }
+  social: {
+    facebook: string
+    instagram: string
+    twitter: string
+    linkedin: string
+  }
+  contact: {
+    email: string
+    phone: string
+    address: string
+  }
+}
+
+export default function UIManagement() {
+  const [settings, setSettings] = useState<UISettings>({
+    brand: {
+      siteName: 'Tiny Tastes',
+      tagline: 'Nutritious meals for little ones',
+      logoUrl: '',
+      faviconUrl: ''
+    },
+    colors: {
+      primary: '#10b981',
+      secondary: '#059669',
+      accent: '#34d399',
+      background: '#ffffff',
+      text: '#111827',
+      muted: '#6b7280'
+    },
+    typography: {
+      fontFamily: 'Inter, system-ui, sans-serif',
+      headingFont: 'Inter, system-ui, sans-serif'
+    },
+    layout: {
+      headerHeight: 64,
+      sidebarWidth: 256
+    },
+    social: {
+      facebook: '',
+      instagram: '',
+      twitter: '',
+      linkedin: ''
+    },
+    contact: {
+      email: '',
+      phone: '',
+      address: ''
+    }
+  })
+
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [previewMode, setPreviewMode] = useState(false)
+  const [csrfToken, setCsrfToken] = useState<string>('')
+
+  useEffect(() => {
+    fetchUISettings()
+    fetchCSRFToken()
+  }, [])
+
+  const fetchCSRFToken = async () => {
+    try {
+      const response = await fetch('/api/csrf-token')
+      if (response.ok) {
+        const data = await response.json()
+        setCsrfToken(data.csrfToken)
+      }
+    } catch (error) {
+      console.error('Error fetching CSRF token:', error)
+    }
+  }
+
+  const makeAuthenticatedRequest = async (url: string, options: RequestInit = {}) => {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken,
+        ...options.headers,
+      },
+    })
+
+    if (!response.ok && response.status === 403) {
+      const error = await response.json()
+      if (error.error === 'CSRF token validation failed') {
+        // Refresh CSRF token and retry once
+        await fetchCSRFToken()
+        return fetch(url, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+            ...options.headers,
+          },
+        })
+      }
+    }
+
+    return response
+  }
+
+  const fetchUISettings = async () => {
+    try {
+      const response = await fetch('/api/admin/ui')
+      if (response.ok) {
+        const data = await response.json()
+        setSettings(data.settings)
+      }
+    } catch (error) {
+      console.error('Error fetching UI settings:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const saveSettings = async () => {
+    setSaving(true)
+    setMessage(null)
+
+    try {
+      const response = await makeAuthenticatedRequest('/api/admin/ui', {
+        method: 'POST',
+        body: JSON.stringify({ settings }),
+      })
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'UI settings saved successfully!' })
+        // Refresh CSRF token after successful save
+        fetchCSRFToken()
+      } else {
+        const error = await response.json()
+        setMessage({ type: 'error', text: error.error || 'Failed to save settings' })
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to save settings' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const resetSettings = async () => {
+    if (!confirm('Are you sure you want to reset all UI settings to defaults?')) {
+      return
+    }
+
+    setSaving(true)
+    setMessage(null)
+
+    try {
+      const response = await makeAuthenticatedRequest('/api/admin/ui', {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'UI settings reset to defaults!' })
+        fetchUISettings()
+        // Refresh CSRF token after successful reset
+        fetchCSRFToken()
+      } else {
+        const error = await response.json()
+        setMessage({ type: 'error', text: error.error || 'Failed to reset settings' })
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to reset settings' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const updateSetting = (section: keyof UISettings, key: string, value: any) => {
+    setSettings(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [key]: value
+      }
+    }))
+  }
+
+  const ColorPicker = ({ label, value, onChange }: { label: string, value: string, onChange: (value: string) => void }) => (
+    <div className="space-y-2">
+      <Label htmlFor={label}>{label}</Label>
+      <div className="flex items-center space-x-2">
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
+        />
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="#000000"
+          className="flex-1"
+        />
+      </div>
+    </div>
+  )
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading UI settings...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    )
+  }
+
+  return (
+    <AdminLayout>
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">UI Management</h1>
+            <p className="text-gray-600">Customize your website's appearance, branding, and layout.</p>
+          </div>
+          <div className="flex items-center space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => setPreviewMode(!previewMode)}
+              className="flex items-center space-x-2"
+            >
+              <Eye className="h-4 w-4" />
+              <span>{previewMode ? 'Exit Preview' : 'Preview'}</span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={resetSettings}
+              disabled={saving}
+              className="flex items-center space-x-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              <span>Reset</span>
+            </Button>
+            <Button
+              onClick={saveSettings}
+              disabled={saving}
+              className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700"
+            >
+              <Save className="h-4 w-4" />
+              <span>{saving ? 'Saving...' : 'Save Changes'}</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Message */}
+        {message && (
+          <div className={`mb-6 p-4 rounded-lg flex items-center space-x-2 ${
+            message.type === 'success' 
+              ? 'bg-green-50 text-green-800 border border-green-200' 
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}>
+            {message.type === 'success' ? (
+              <CheckCircle className="h-5 w-5" />
+            ) : (
+              <AlertCircle className="h-5 w-5" />
+            )}
+            <span>{message.text}</span>
+          </div>
+        )}
+
+        {/* Preview Mode Banner */}
+        {previewMode && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <Eye className="h-5 w-5 text-blue-600" />
+              <span className="text-blue-800 font-medium">Preview Mode Active</span>
+            </div>
+            <p className="text-blue-700 text-sm mt-1">
+              Changes are shown in real-time. Click "Save Changes" to apply them permanently.
+            </p>
+          </div>
+        )}
+
+        {/* Settings Tabs */}
+        <Tabs defaultValue="brand" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="brand" className="flex items-center space-x-2">
+              <Settings className="h-4 w-4" />
+              <span>Brand</span>
+            </TabsTrigger>
+            <TabsTrigger value="colors" className="flex items-center space-x-2">
+              <Palette className="h-4 w-4" />
+              <span>Colors</span>
+            </TabsTrigger>
+            <TabsTrigger value="typography" className="flex items-center space-x-2">
+              <Type className="h-4 w-4" />
+              <span>Typography</span>
+            </TabsTrigger>
+            <TabsTrigger value="layout" className="flex items-center space-x-2">
+              <Layout className="h-4 w-4" />
+              <span>Layout</span>
+            </TabsTrigger>
+            <TabsTrigger value="social" className="flex items-center space-x-2">
+              <Globe className="h-4 w-4" />
+              <span>Social</span>
+            </TabsTrigger>
+            <TabsTrigger value="contact" className="flex items-center space-x-2">
+              <Phone className="h-4 w-4" />
+              <span>Contact</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Brand Settings */}
+          <TabsContent value="brand" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Settings className="h-5 w-5" />
+                  <span>Brand Identity</span>
+                </CardTitle>
+                <CardDescription>
+                  Configure your website's brand name, tagline, and visual identity.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="siteName">Site Name</Label>
+                    <Input
+                      id="siteName"
+                      value={settings.brand.siteName}
+                      onChange={(e) => updateSetting('brand', 'siteName', e.target.value)}
+                      placeholder="Your site name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tagline">Tagline</Label>
+                    <Input
+                      id="tagline"
+                      value={settings.brand.tagline}
+                      onChange={(e) => updateSetting('brand', 'tagline', e.target.value)}
+                      placeholder="Your site tagline"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Logo</Label>
+                    <FileUpload
+                      onFileSelect={(url) => updateSetting('brand', 'logoUrl', url)}
+                      currentImageUrl={settings.brand.logoUrl}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Favicon</Label>
+                    <FileUpload
+                      onFileSelect={(url) => updateSetting('brand', 'faviconUrl', url)}
+                      currentImageUrl={settings.brand.faviconUrl}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Color Settings */}
+          <TabsContent value="colors" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Palette className="h-5 w-5" />
+                  <span>Color Scheme</span>
+                </CardTitle>
+                <CardDescription>
+                  Customize your website's color palette to match your brand.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <ColorPicker
+                    label="Primary Color"
+                    value={settings.colors.primary}
+                    onChange={(value) => updateSetting('colors', 'primary', value)}
+                  />
+                  <ColorPicker
+                    label="Secondary Color"
+                    value={settings.colors.secondary}
+                    onChange={(value) => updateSetting('colors', 'secondary', value)}
+                  />
+                  <ColorPicker
+                    label="Accent Color"
+                    value={settings.colors.accent}
+                    onChange={(value) => updateSetting('colors', 'accent', value)}
+                  />
+                  <ColorPicker
+                    label="Background Color"
+                    value={settings.colors.background}
+                    onChange={(value) => updateSetting('colors', 'background', value)}
+                  />
+                  <ColorPicker
+                    label="Text Color"
+                    value={settings.colors.text}
+                    onChange={(value) => updateSetting('colors', 'text', value)}
+                  />
+                  <ColorPicker
+                    label="Muted Text Color"
+                    value={settings.colors.muted}
+                    onChange={(value) => updateSetting('colors', 'muted', value)}
+                  />
+                </div>
+
+                {/* Color Preview */}
+                <div className="space-y-4">
+                  <Label>Color Preview</Label>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div 
+                      className="h-20 rounded-lg flex items-center justify-center text-white font-medium"
+                      style={{ backgroundColor: settings.colors.primary }}
+                    >
+                      Primary
+                    </div>
+                    <div 
+                      className="h-20 rounded-lg flex items-center justify-center text-white font-medium"
+                      style={{ backgroundColor: settings.colors.secondary }}
+                    >
+                      Secondary
+                    </div>
+                    <div 
+                      className="h-20 rounded-lg flex items-center justify-center text-white font-medium"
+                      style={{ backgroundColor: settings.colors.accent }}
+                    >
+                      Accent
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Typography Settings */}
+          <TabsContent value="typography" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Type className="h-5 w-5" />
+                  <span>Typography</span>
+                </CardTitle>
+                <CardDescription>
+                  Configure fonts and text styling for your website.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="fontFamily">Body Font Family</Label>
+                    <Input
+                      id="fontFamily"
+                      value={settings.typography.fontFamily}
+                      onChange={(e) => updateSetting('typography', 'fontFamily', e.target.value)}
+                      placeholder="Inter, system-ui, sans-serif"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="headingFont">Heading Font Family</Label>
+                    <Input
+                      id="headingFont"
+                      value={settings.typography.headingFont}
+                      onChange={(e) => updateSetting('typography', 'headingFont', e.target.value)}
+                      placeholder="Inter, system-ui, sans-serif"
+                    />
+                  </div>
+                </div>
+
+                {/* Typography Preview */}
+                <div className="space-y-4">
+                  <Label>Typography Preview</Label>
+                  <div className="p-6 border rounded-lg space-y-4">
+                    <h1 
+                      className="text-4xl font-bold"
+                      style={{ fontFamily: settings.typography.headingFont }}
+                    >
+                      Heading 1
+                    </h1>
+                    <h2 
+                      className="text-2xl font-semibold"
+                      style={{ fontFamily: settings.typography.headingFont }}
+                    >
+                      Heading 2
+                    </h2>
+                    <p 
+                      className="text-base"
+                      style={{ fontFamily: settings.typography.fontFamily }}
+                    >
+                      This is a sample paragraph to preview how your body text will look with the selected font family.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Layout Settings */}
+          <TabsContent value="layout" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Layout className="h-5 w-5" />
+                  <span>Layout Settings</span>
+                </CardTitle>
+                <CardDescription>
+                  Configure the layout dimensions and spacing of your website.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="headerHeight">Header Height (px)</Label>
+                    <Input
+                      id="headerHeight"
+                      type="number"
+                      value={settings.layout.headerHeight}
+                      onChange={(e) => updateSetting('layout', 'headerHeight', parseInt(e.target.value))}
+                      min="40"
+                      max="120"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sidebarWidth">Sidebar Width (px)</Label>
+                    <Input
+                      id="sidebarWidth"
+                      type="number"
+                      value={settings.layout.sidebarWidth}
+                      onChange={(e) => updateSetting('layout', 'sidebarWidth', parseInt(e.target.value))}
+                      min="200"
+                      max="400"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Social Media Settings */}
+          <TabsContent value="social" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Globe className="h-5 w-5" />
+                  <span>Social Media Links</span>
+                </CardTitle>
+                <CardDescription>
+                  Add your social media profiles to display on your website.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="facebook" className="flex items-center space-x-2">
+                      <Facebook className="h-4 w-4" />
+                      <span>Facebook URL</span>
+                    </Label>
+                    <Input
+                      id="facebook"
+                      value={settings.social.facebook}
+                      onChange={(e) => updateSetting('social', 'facebook', e.target.value)}
+                      placeholder="https://facebook.com/yourpage"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="instagram" className="flex items-center space-x-2">
+                      <Instagram className="h-4 w-4" />
+                      <span>Instagram URL</span>
+                    </Label>
+                    <Input
+                      id="instagram"
+                      value={settings.social.instagram}
+                      onChange={(e) => updateSetting('social', 'instagram', e.target.value)}
+                      placeholder="https://instagram.com/yourpage"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="twitter" className="flex items-center space-x-2">
+                      <Twitter className="h-4 w-4" />
+                      <span>Twitter URL</span>
+                    </Label>
+                    <Input
+                      id="twitter"
+                      value={settings.social.twitter}
+                      onChange={(e) => updateSetting('social', 'twitter', e.target.value)}
+                      placeholder="https://twitter.com/yourpage"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="linkedin" className="flex items-center space-x-2">
+                      <Linkedin className="h-4 w-4" />
+                      <span>LinkedIn URL</span>
+                    </Label>
+                    <Input
+                      id="linkedin"
+                      value={settings.social.linkedin}
+                      onChange={(e) => updateSetting('social', 'linkedin', e.target.value)}
+                      placeholder="https://linkedin.com/company/yourcompany"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Contact Settings */}
+          <TabsContent value="contact" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Phone className="h-5 w-5" />
+                  <span>Contact Information</span>
+                </CardTitle>
+                <CardDescription>
+                  Configure your business contact information.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="flex items-center space-x-2">
+                      <Mail className="h-4 w-4" />
+                      <span>Email Address</span>
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={settings.contact.email}
+                      onChange={(e) => updateSetting('contact', 'email', e.target.value)}
+                      placeholder="contact@yourcompany.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone" className="flex items-center space-x-2">
+                      <Phone className="h-4 w-4" />
+                      <span>Phone Number</span>
+                    </Label>
+                    <Input
+                      id="phone"
+                      value={settings.contact.phone}
+                      onChange={(e) => updateSetting('contact', 'phone', e.target.value)}
+                      placeholder="+27 11 123 4567"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address" className="flex items-center space-x-2">
+                    <MapPin className="h-4 w-4" />
+                    <span>Address</span>
+                  </Label>
+                  <Textarea
+                    id="address"
+                    value={settings.contact.address}
+                    onChange={(e) => updateSetting('contact', 'address', e.target.value)}
+                    placeholder="123 Business Street, City, Province, 1234"
+                    rows={3}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </AdminLayout>
+  )
+}

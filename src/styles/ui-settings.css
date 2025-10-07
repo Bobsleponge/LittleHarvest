@@ -1,0 +1,377 @@
+/* UI Settings CSS - Applied globally via UISettingsProvider */
+
+/* CSS Custom Properties for Dynamic UI Settings */
+:root {
+  /* Brand Colors - These will be overridden by JavaScript */
+  --color-primary: #10b981;
+  --color-secondary: #059669;
+  --color-accent: #34d399;
+  --color-background: #ffffff;
+  --color-text: #111827;
+  --color-muted: #6b7280;
+  
+  /* Typography */
+  --font-family: 'Inter', system-ui, sans-serif;
+  --font-heading: 'Inter', system-ui, sans-serif;
+  
+  /* Layout */
+  --header-height: 64px;
+  --sidebar-width: 256px;
+}
+
+/* Apply dynamic colors to common elements */
+.bg-emerald-500 {
+  background-color: var(--color-primary) !important;
+}
+
+.bg-emerald-600 {
+  background-color: var(--color-secondary) !important;
+}
+
+.bg-emerald-700 {
+  background-color: var(--color-secondary) !important;
+}
+
+.text-emerald-500 {
+  color: var(--color-primary) !important;
+}
+
+.text-emerald-600 {
+  color: var(--color-secondary) !important;
+}
+
+.border-emerald-500 {
+  border-color: var(--color-primary) !important;
+}
+
+.border-emerald-600 {
+  border-color: var(--color-secondary) !important;
+}
+
+.hover\:bg-emerald-600:hover {
+  background-color: var(--color-secondary) !important;
+}
+
+.hover\:bg-emerald-700:hover {
+  background-color: var(--color-secondary) !important;
+}
+
+.hover\:text-emerald-600:hover {
+  color: var(--color-secondary) !important;
+}
+
+/* Gradient backgrounds */
+.bg-gradient-to-r.from-emerald-500.to-teal-500 {
+  background: linear-gradient(to right, var(--color-primary), var(--color-accent)) !important;
+}
+
+.bg-gradient-to-r.from-emerald-600.to-teal-600 {
+  background: linear-gradient(to right, var(--color-secondary), var(--color-accent)) !important;
+}
+
+.bg-gradient-to-br.from-emerald-50.via-white.to-teal-50 {
+  background: linear-gradient(to bottom right, 
+    color-mix(in srgb, var(--color-primary) 5%, white), 
+    white, 
+    color-mix(in srgb, var(--color-accent) 5%, white)
+  ) !important;
+}
+
+/* Apply font family globally */
+body {
+  font-family: var(--font-family);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+/* Dynamic header height */
+header {
+  min-height: var(--header-height);
+}
+
+/* Navigation specific styles */
+.navigation-header {
+  min-height: 80px;
+}
+
+.navigation-container {
+  min-height: 48px;
+}
+
+/* Text truncation utilities */
+.truncate-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Responsive text sizing */
+@media (max-width: 640px) {
+  .navigation-brand-text {
+    font-size: 1.125rem; /* text-lg */
+    max-width: 150px;
+  }
+  
+  .navigation-tagline {
+    font-size: 0.75rem; /* text-xs */
+    max-width: 150px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .navigation-brand-text {
+    font-size: 1.25rem; /* text-xl */
+    max-width: 300px;
+  }
+  
+  .navigation-tagline {
+    font-size: 0.75rem; /* text-xs */
+    max-width: 300px;
+  }
+}
+
+/* Custom button styles that respect UI settings */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-secondary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-primary);
+  border: 2px solid var(--color-primary);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+/* Card styles */
+.card {
+  background-color: var(--color-background);
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
+
+/* Form input focus styles with dynamic colors */
+.input-focus {
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-family);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-focus:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+/* Button styles with dynamic colors */
+.btn-primary-dynamic {
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-primary-dynamic:hover {
+  background-color: var(--color-secondary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-primary-dynamic:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Link styles with dynamic colors */
+.link-primary-dynamic {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.link-primary-dynamic:hover {
+  color: var(--color-secondary);
+}
+
+/* Link styles */
+.link-primary {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.link-primary:hover {
+  color: var(--color-secondary);
+}
+
+/* Badge styles */
+.badge {
+  background-color: var(--color-primary);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.badge-secondary {
+  background-color: var(--color-muted);
+  color: white;
+}
+
+/* Alert styles */
+.alert {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.alert-success {
+  background-color: color-mix(in srgb, var(--color-primary) 10%, white);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, white);
+  color: var(--color-secondary);
+}
+
+.alert-error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+}
+
+.alert-warning {
+  background-color: #fffbeb;
+  border: 1px solid #fed7aa;
+  color: #d97706;
+}
+
+/* Navigation styles */
+.nav-link {
+  color: var(--color-text);
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 10%, white);
+  color: var(--color-secondary);
+}
+
+.nav-link.active {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+/* Footer styles */
+.footer {
+  background-color: #1f2937;
+  color: white;
+}
+
+.footer a {
+  color: #9ca3af;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footer a:hover {
+  color: white;
+}
+
+/* Responsive design helpers */
+@media (max-width: 768px) {
+  .mobile-hidden {
+    display: none;
+  }
+  
+  .mobile-full {
+    width: 100%;
+  }
+}
+
+/* Animation utilities */
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* Loading states */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.spinner {
+  border: 2px solid #f3f4f6;
+  border-top: 2px solid var(--color-primary);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

@@ -10,8 +10,9 @@ import { logger, perfLogger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
   return perfLogger.timeAsync('upload:image', async () => {
+    const session = await getServerSession(authOptions)
+    
     try {
-      const session = await getServerSession(authOptions)
 
       if (!session?.user?.id || session.user.role !== 'ADMIN') {
         logger.warn('Unauthorized upload attempt', { userId: session?.user?.id })

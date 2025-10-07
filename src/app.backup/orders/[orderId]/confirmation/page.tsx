@@ -60,5 +60,28 @@ export default async function OrderConfirmationPage({ params }: OrderConfirmatio
     notFound()
   }
 
-  return <OrderConfirmation order={order} />
+  // Transform the order data to match the expected interface
+  const transformedOrder = {
+    ...order,
+    createdAt: order.createdAt.toISOString(),
+    deliveryDate: order.deliveryDate?.toISOString(),
+    paymentDueDate: order.paymentDueDate?.toISOString(),
+    address: order.address ? {
+      street: order.address.street,
+      city: order.address.city,
+      province: order.address.province,
+      postalCode: order.address.postalCode,
+      country: order.address.country
+    } : undefined,
+    items: order.items.map(item => ({
+      ...item,
+      product: {
+        ...item.product,
+        imageUrl: item.product.imageUrl || undefined
+      }
+    })),
+    notes: order.notes || undefined
+  }
+
+  return <OrderConfirmation order={transformedOrder} />
 }
