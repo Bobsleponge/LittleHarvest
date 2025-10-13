@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { getToken } from 'next-auth/jwt'
-import { authOptions } from '../../auth/[...nextauth]'
+import { authOptions } from '../../../../src/lib/auth'
 import { prisma } from '../../../../src/lib/prisma'
 import { logger } from '../../../../src/lib/logger'
 import { SecurityIncidentResponseEngine } from '../../../../src/lib/security-incident-engine'

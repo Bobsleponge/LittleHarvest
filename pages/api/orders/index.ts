@@ -1,11 +1,11 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../src/lib/auth'
-import { prisma } from '../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../src/lib/supabaseClient'
 import { logger } from '../../../src/lib/logger'
 import { withAPIRateLimit, RATE_LIMITS } from '../../../src/lib/rate-limit'
 import { withCSRFProtection } from '../../../src/lib/csrf'
-import { sendOrderNotification, OrderNotificationData } from '../../../src/lib/email'
+import { sendOrderNotificationWithCheck, sendAdminNotificationWithCheck } from '../../../src/lib/notification-service'
 
 export default withCSRFProtection(withAPIRateLimit(
   RATE_LIMITS.GENERAL,
@@ -50,40 +50,56 @@ async function getOrders(req: NextApiRequest, res: NextApiResponse, userId: stri
       where.status = status as string
     }
 
-    const [orders, totalCount] = await Promise.all([
-      prisma.order.findMany({
-        where,
-        include: {
-          items: {
-            include: {
-              product: {
-                include: {
-                  ageGroup: true,
-                  texture: true
-                }
-              },
-              portionSize: true,
-              package: true
-            }
-          },
-          address: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true
-            }
-          }
-        },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limitNum
-      }),
-      prisma.order.count({ where })
-    ])
+    // Build Supabase query
+    let query = supabaseAdmin
+      .from('Order')
+      .select(`
+        *,
+        items:OrderItem(
+          *,
+          product:Product(
+            *,
+            ageGroup:AgeGroup(*),
+            texture:Texture(*)
+          ),
+          portionSize:PortionSize(*),
+          package:Package(*)
+        ),
+        address:Address(*),
+        user:User(id, name, email)
+      `)
+      .eq('userId', userId)
+      .order('createdAt', { ascending: false })
+      .range(skip, skip + limitNum - 1)
+
+    if (status && status !== 'all') {
+      query = query.eq('status', status as string)
+    }
+
+    const { data: orders, error: ordersError } = await query
+
+    if (ordersError) {
+      throw new Error(`Failed to fetch orders: ${ordersError.message}`)
+    }
+
+    // Get total count
+    let countQuery = supabaseAdmin
+      .from('Order')
+      .select('*', { count: 'exact', head: true })
+      .eq('userId', userId)
+
+    if (status && status !== 'all') {
+      countQuery = countQuery.eq('status', status as string)
+    }
+
+    const { count: totalCount, error: countError } = await countQuery
+
+    if (countError) {
+      throw new Error(`Failed to count orders: ${countError.message}`)
+    }
 
     // Transform orders
-    const transformedOrders = orders.map(order => ({
+    const transformedOrders = (orders || []).map(order => ({
       id: order.id,
       orderNumber: order.orderNumber,
       status: order.status,
@@ -135,7 +151,7 @@ async function getOrders(req: NextApiRequest, res: NextApiResponse, userId: stri
       }
     }))
 
-    const totalPages = Math.ceil(totalCount / limitNum)
+    const totalPages = Math.ceil((totalCount || 0) / limitNum)
     const hasNextPage = pageNum < totalPages
     const hasPrevPage = pageNum > 1
 
@@ -151,7 +167,7 @@ async function getOrders(req: NextApiRequest, res: NextApiResponse, userId: stri
       pagination: {
         page: pageNum,
         limit: limitNum,
-        totalCount,
+        totalCount: totalCount || 0,
         totalPages,
         hasNextPage,
         hasPrevPage
@@ -186,21 +202,25 @@ async function createOrder(req: NextApiRequest, res: NextApiResponse, userId: st
     // Verify all items exist and are available
     const productIds = items.map(item => item.productId)
     
-    const products = await prisma.product.findMany({
-      where: { 
-        id: { in: productIds },
-        isActive: true 
-      },
-      include: {
-        prices: {
-          where: { isActive: true },
-          include: { portionSize: true }
-        },
-        inventory: {
-          include: { portionSize: true }
-        }
-      }
-    })
+    const { data: products, error: productsError } = await supabaseAdmin
+      .from('Product')
+      .select(`
+        *,
+        prices:Price(
+          *,
+          portionSize:PortionSize(*)
+        ),
+        inventory:Inventory(
+          *,
+          portionSize:PortionSize(*)
+        )
+      `)
+      .in('id', productIds)
+      .eq('isActive', true)
+
+    if (productsError) {
+      throw new Error(`Failed to fetch products: ${productsError.message}`)
+    }
 
     if (products.length !== productIds.length) {
       return res.status(400).json({ error: 'Some products are not available' })
@@ -212,10 +232,12 @@ async function createOrder(req: NextApiRequest, res: NextApiResponse, userId: st
       const product = products.find(p => p.id === item.productId)
       if (!product) continue
       
-      const price = product.prices[0] // Use first available price
+      // Filter active prices
+      const activePrices = product.prices?.filter((p: any) => p.isActive) || []
+      const price = activePrices[0] // Use first available price
       if (!price) continue
       
-      const inventory = product.inventory.find(inv => inv.portionSizeId === price.portionSizeId)
+      const inventory = product.inventory?.find((inv: any) => inv.portionSizeId === price.portionSizeId)
       const availableStock = inventory ? inventory.currentStock - inventory.reservedStock : 0
       
       if (availableStock < item.quantity) {
@@ -242,27 +264,35 @@ async function createOrder(req: NextApiRequest, res: NextApiResponse, userId: st
     // Handle address - either use existing addressId or create new one from deliveryInfo
     let address = null
     if (addressId) {
-      address = await prisma.address.findFirst({
-        where: {
-          id: addressId,
-          profile: { userId }
-        }
-      })
-      if (!address) {
+      const { data: addressData, error: addressError } = await supabaseAdmin
+        .from('Address')
+        .select(`
+          *,
+          profile:Profile(*)
+        `)
+        .eq('id', addressId)
+        .eq('profile.userId', userId)
+        .single()
+      
+      if (addressError) {
         return res.status(400).json({ error: 'Address not found' })
       }
+      address = addressData
     } else if (deliveryInfo) {
       // Create new address from delivery info
-      const profile = await prisma.profile.findFirst({
-        where: { userId }
-      })
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('Profile')
+        .select('*')
+        .eq('userId', userId)
+        .single()
       
-      if (!profile) {
+      if (profileError) {
         return res.status(400).json({ error: 'User profile not found' })
       }
 
-      address = await prisma.address.create({
-        data: {
+      const { data: addressData, error: addressCreateError } = await supabaseAdmin
+        .from('Address')
+        .insert([{
           profileId: profile.id,
           type: 'DELIVERY',
           street: deliveryInfo.address,
@@ -270,8 +300,14 @@ async function createOrder(req: NextApiRequest, res: NextApiResponse, userId: st
           province: 'Western Cape', // Default province
           postalCode: deliveryInfo.postalCode,
           country: 'South Africa'
-        }
-      })
+        }])
+        .select()
+        .single()
+
+      if (addressCreateError) {
+        throw new Error(`Failed to create address: ${addressCreateError.message}`)
+      }
+      address = addressData
     }
 
     // Calculate totals and validate pricing
@@ -286,8 +322,9 @@ async function createOrder(req: NextApiRequest, res: NextApiResponse, userId: st
         })
       }
       
-      // Use the first available price if no portionSizeId specified
-      const price = product.prices[0]
+      // Filter active prices and use the first available price if no portionSizeId specified
+      const activePrices = product.prices?.filter((p: any) => p.isActive) || []
+      const price = activePrices[0]
       
       if (!price) {
         return res.status(400).json({ 
@@ -317,68 +354,103 @@ async function createOrder(req: NextApiRequest, res: NextApiResponse, userId: st
       ? new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours for EFT
       : null // No due date for cash on delivery
 
-    // Create order with items
-    const order = await prisma.order.create({
-      data: {
+    // Create order first
+    const { data: order, error: orderError } = await supabaseAdmin
+      .from('Order')
+      .insert([{
         orderNumber,
         userId,
         status: 'PENDING',
         paymentStatus,
         totalZar,
         notes: notes || deliveryInfo?.specialInstructions || null,
-        deliveryDate: deliveryDate ? new Date(deliveryDate) : (deliveryInfo?.deliveryDate ? new Date(deliveryInfo.deliveryDate) : null),
-        paymentDueDate,
-        addressId: address?.id || null,
-        items: {
-          create: orderItems
-        }
-      },
-      include: {
-        items: {
-          include: {
-            product: {
-              include: {
-                ageGroup: true,
-                texture: true
-              }
-            },
-            portionSize: true,
-            package: true
-          }
-        },
-        address: true
-      }
-    })
+        deliveryDate: deliveryDate ? new Date(deliveryDate).toISOString() : (deliveryInfo?.deliveryDate ? new Date(deliveryInfo.deliveryDate).toISOString() : null),
+        paymentDueDate: paymentDueDate ? paymentDueDate.toISOString() : null,
+        addressId: address?.id || null
+      }])
+      .select()
+      .single()
+
+    if (orderError) {
+      throw new Error(`Failed to create order: ${orderError.message}`)
+    }
+
+    // Create order items
+    const orderItemsWithOrderId = orderItems.map(item => ({
+      ...item,
+      orderId: order.id
+    }))
+
+    const { data: createdItems, error: itemsError } = await supabaseAdmin
+      .from('OrderItem')
+      .insert(orderItemsWithOrderId)
+      .select(`
+        *,
+        product:Product(
+          *,
+          ageGroup:AgeGroup(*),
+          texture:Texture(*)
+        ),
+        portionSize:PortionSize(*),
+        package:Package(*)
+      `)
+
+    if (itemsError) {
+      throw new Error(`Failed to create order items: ${itemsError.message}`)
+    }
+
+    // Fetch the complete order with all relationships
+    const { data: completeOrder, error: completeOrderError } = await supabaseAdmin
+      .from('Order')
+      .select(`
+        *,
+        items:OrderItem(
+          *,
+          product:Product(
+            *,
+            ageGroup:AgeGroup(*),
+            texture:Texture(*)
+          ),
+          portionSize:PortionSize(*),
+          package:Package(*)
+        ),
+        address:Address(*),
+        user:User(id, name, email)
+      `)
+      .eq('id', order.id)
+      .single()
+
+    if (completeOrderError) {
+      throw new Error(`Failed to fetch complete order: ${completeOrderError.message}`)
+    }
 
     // Deduct inventory for all order items
     for (const item of orderItems) {
-      const inventory = await prisma.inventory.findUnique({
-        where: {
-          productId_portionSizeId: {
-            productId: item.productId,
-            portionSizeId: item.portionSizeId
-          }
-        }
-      })
+      const { data: inventory, error: inventoryError } = await supabaseAdmin
+        .from('Inventory')
+        .select('*')
+        .eq('productId', item.productId)
+        .eq('portionSizeId', item.portionSizeId)
+        .single()
+
+      if (inventoryError && inventoryError.code !== 'PGRST116') {
+        throw new Error(`Failed to fetch inventory: ${inventoryError.message}`)
+      }
 
       if (inventory) {
-        await prisma.inventory.update({
-          where: {
-            productId_portionSizeId: {
-              productId: item.productId,
-              portionSizeId: item.portionSizeId
-            }
-          },
-          data: {
-            currentStock: {
-              decrement: item.quantity
-            },
-            reservedStock: {
-              increment: item.quantity
-            },
-            updatedAt: new Date()
-          }
-        })
+        const { error: updateError } = await supabaseAdmin
+          .from('Inventory')
+          .update({
+            currentStock: inventory.currentStock - item.quantity,
+            reservedStock: inventory.reservedStock + item.quantity,
+            updatedAt: new Date().toISOString()
+          })
+          .eq('productId', item.productId)
+          .eq('portionSizeId', item.portionSizeId)
+
+        if (updateError) {
+          throw new Error(`Failed to update inventory: ${updateError.message}`)
+        }
 
         logger.info('Inventory updated', {
           productId: item.productId,
@@ -388,16 +460,20 @@ async function createOrder(req: NextApiRequest, res: NextApiResponse, userId: st
         })
       } else {
         // Create inventory record if it doesn't exist
-        await prisma.inventory.create({
-          data: {
+        const { error: createError } = await supabaseAdmin
+          .from('Inventory')
+          .insert([{
             productId: item.productId,
             portionSizeId: item.portionSizeId,
             currentStock: -item.quantity, // Negative stock indicates overselling
             reservedStock: item.quantity,
             weeklyLimit: 0,
-            lastRestocked: new Date()
-          }
-        })
+            lastRestocked: new Date().toISOString()
+          }])
+
+        if (createError) {
+          throw new Error(`Failed to create inventory: ${createError.message}`)
+        }
 
         logger.warn('Inventory record created with negative stock', {
           productId: item.productId,
@@ -409,64 +485,94 @@ async function createOrder(req: NextApiRequest, res: NextApiResponse, userId: st
     }
 
     // Clear user's cart after successful order
-    await prisma.cartItem.deleteMany({
-      where: {
-        cart: { userId }
-      }
-    })
+    const { error: cartError } = await supabaseAdmin
+      .from('CartItem')
+      .delete()
+      .eq('cart.userId', userId)
+
+    if (cartError) {
+      logger.warn('Failed to clear cart after order', {
+        userId,
+        orderId: order.id,
+        error: cartError.message
+      })
+    }
 
     logger.info('Order created', { 
       userId, 
-      orderId: order.id, 
-      orderNumber: order.orderNumber,
-      totalZar: order.totalZar,
-      itemCount: order.items.length 
+      orderId: completeOrder.id, 
+      orderNumber: completeOrder.orderNumber,
+      totalZar: completeOrder.totalZar,
+      itemCount: completeOrder.items.length 
     })
 
     // Send order confirmation email
     try {
       const emailData: OrderNotificationData = {
-        orderNumber: order.orderNumber,
-        customerName: order.user.name || 'Valued Customer',
-        customerEmail: order.user.email,
-        orderStatus: order.status,
-        paymentStatus: order.paymentStatus,
-        totalAmount: order.totalZar,
-        deliveryDate: order.deliveryDate?.toISOString(),
-        paymentDueDate: order.paymentDueDate?.toISOString(),
-        items: order.items.map(item => ({
+        orderNumber: completeOrder.orderNumber,
+        customerName: completeOrder.user.name || 'Valued Customer',
+        customerEmail: completeOrder.user.email,
+        orderStatus: completeOrder.status,
+        paymentStatus: completeOrder.paymentStatus,
+        totalAmount: completeOrder.totalZar,
+        deliveryDate: completeOrder.deliveryDate,
+        paymentDueDate: completeOrder.paymentDueDate,
+        items: completeOrder.items.map(item => ({
           productName: item.product.name,
           portionSize: item.portionSize.name,
           quantity: item.quantity,
           unitPrice: item.unitPriceZar,
           lineTotal: item.lineTotalZar,
         })),
-        address: order.address ? {
-          street: order.address.street,
-          city: order.address.city,
-          province: order.address.province,
-          postalCode: order.address.postalCode,
+        address: completeOrder.address ? {
+          street: completeOrder.address.street,
+          city: completeOrder.address.city,
+          province: completeOrder.address.province,
+          postalCode: completeOrder.address.postalCode,
         } : undefined,
       }
 
-      const emailSent = await sendOrderNotification(emailData, 'confirmation')
-      if (emailSent) {
+      // Send order confirmation email with notification settings check
+      const emailResult = await sendOrderNotificationWithCheck(emailData, 'confirmation')
+      if (emailResult.success) {
         logger.info('Order confirmation email sent', { 
-          orderId: order.id, 
-          orderNumber: order.orderNumber,
-          customerEmail: order.user.email 
+          orderId: completeOrder.id, 
+          orderNumber: completeOrder.orderNumber,
+          customerEmail: completeOrder.user.email 
         })
       } else {
-        logger.warn('Failed to send order confirmation email', { 
-          orderId: order.id, 
-          orderNumber: order.orderNumber,
-          customerEmail: order.user.email 
+        logger.info('Order confirmation email skipped', { 
+          orderId: completeOrder.id, 
+          orderNumber: completeOrder.orderNumber,
+          reason: emailResult.reason 
+        })
+      }
+
+      // Send admin notification for new order
+      const adminResult = await sendAdminNotificationWithCheck('newOrderAlerts', {
+        orderId: completeOrder.id,
+        orderNumber: completeOrder.orderNumber,
+        customerName: completeOrder.user.name,
+        total: completeOrder.totalZar,
+        adminEmail: process.env.ADMIN_EMAIL || 'admin@tinytastes.co.za'
+      })
+      
+      if (adminResult.success) {
+        logger.info('Admin new order notification sent', { 
+          orderId: completeOrder.id, 
+          orderNumber: completeOrder.orderNumber
+        })
+      } else {
+        logger.info('Admin new order notification skipped', { 
+          orderId: completeOrder.id, 
+          orderNumber: completeOrder.orderNumber,
+          reason: adminResult.reason 
         })
       }
     } catch (emailError) {
       logger.error('Error sending order confirmation email', {
-        orderId: order.id,
-        orderNumber: order.orderNumber,
+        orderId: completeOrder.id,
+        orderNumber: completeOrder.orderNumber,
         error: emailError instanceof Error ? emailError.message : 'Unknown error'
       })
       // Don't fail the order creation if email fails
@@ -474,18 +580,18 @@ async function createOrder(req: NextApiRequest, res: NextApiResponse, userId: st
 
     res.status(201).json({
       message: 'Order created successfully',
-      orderNumber: order.orderNumber,
+      orderNumber: completeOrder.orderNumber,
       order: {
-        id: order.id,
-        orderNumber: order.orderNumber,
-        status: order.status,
-        paymentStatus: order.paymentStatus,
-        totalZar: order.totalZar,
-        notes: order.notes,
-        deliveryDate: order.deliveryDate,
-        paymentDueDate: order.paymentDueDate,
-        createdAt: order.createdAt,
-        items: order.items.map(item => ({
+        id: completeOrder.id,
+        orderNumber: completeOrder.orderNumber,
+        status: completeOrder.status,
+        paymentStatus: completeOrder.paymentStatus,
+        totalZar: completeOrder.totalZar,
+        notes: completeOrder.notes,
+        deliveryDate: completeOrder.deliveryDate,
+        paymentDueDate: completeOrder.paymentDueDate,
+        createdAt: completeOrder.createdAt,
+        items: completeOrder.items.map(item => ({
           id: item.id,
           product: {
             id: item.product.id,
@@ -509,14 +615,14 @@ async function createOrder(req: NextApiRequest, res: NextApiResponse, userId: st
           unitPriceZar: item.unitPriceZar,
           lineTotalZar: item.lineTotalZar
         })),
-        address: order.address ? {
-          id: order.address.id,
-          type: order.address.type,
-          street: order.address.street,
-          city: order.address.city,
-          province: order.address.province,
-          postalCode: order.address.postalCode,
-          country: order.address.country
+        address: completeOrder.address ? {
+          id: completeOrder.address.id,
+          type: completeOrder.address.type,
+          street: completeOrder.address.street,
+          city: completeOrder.address.city,
+          province: completeOrder.address.province,
+          postalCode: completeOrder.address.postalCode,
+          country: completeOrder.address.country
         } : null
       }
     })

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { AdminDateProvider, useAdminDate } from '../../src/lib/admin-date-context'
 import { useBrandSettings } from '../../src/lib/ui-settings-context'
+import { NotificationProvider, useNotifications } from '../../src/contexts/NotificationContext'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -16,13 +17,12 @@ interface NavItem {
 }
 
   const navigation: NavItem[] = [
-    { name: 'Dashboard', href: '/admin', icon: '📊' },
-    { name: 'Analytics', href: '/admin/analytics', icon: '📈' },
+    { name: 'Analytics Dashboard', href: '/admin/analytics-dashboard', icon: '📊' },
     { name: 'Products & Inventory', href: '/admin/products-inventory', icon: '🍎' },
     { name: 'Orders', href: '/admin/orders', icon: '📦' },
     { name: 'Customers', href: '/admin/customers', icon: '👥' },
     { name: 'UI Management', href: '/admin/ui', icon: '🎨' },
-    { name: 'Notifications', href: '/admin/notifications', icon: '🔔', badge: '2' },
+    { name: 'Notifications', href: '/admin/notifications', icon: '🔔' },
     { name: 'Database', href: '/admin/database', icon: '🗄️' },
     { name: 'Security', href: '/admin/security', icon: '🔒' },
     { name: 'Settings', href: '/admin/settings', icon: '⚙️' },
@@ -34,11 +34,11 @@ function DateSelector() {
 
   return (
     <div className="flex items-center space-x-2">
-      <span className="text-sm text-gray-600">Date Range:</span>
+      <span className="text-sm text-gray-600 dark:text-gray-400">Date Range:</span>
       <select
         value={dateRange}
         onChange={(e) => setDateRange(e.target.value as any)}
-        className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+        className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
       >
         <option value="1d">Today</option>
         <option value="7d">Last 7 days</option>
@@ -47,8 +47,45 @@ function DateSelector() {
         <option value="1y">Last year</option>
         <option value="all">All Time</option>
       </select>
-      <span className="text-xs text-gray-500">{formatDateRange()}</span>
+      <span className="text-xs text-gray-500 dark:text-gray-400">{formatDateRange()}</span>
     </div>
+  )
+}
+
+// Navigation Component with Notification Context
+function NavigationWithNotifications({ sidebarOpen, setSidebarOpen }: { sidebarOpen: boolean, setSidebarOpen: (open: boolean) => void }) {
+  const router = useRouter()
+  const { unreadCount } = useNotifications()
+
+  return (
+    <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+      {navigation.map((item) => {
+        const isActive = router.pathname === item.href
+        const showBadge = item.name === 'Notifications' && unreadCount > 0
+        return (
+          <Link
+            key={item.name}
+            href={item.href}
+            className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              isActive
+                ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border-r-2 border-emerald-500'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+            onClick={() => setSidebarOpen(false)}
+          >
+            <div className="flex items-center space-x-3">
+              <span className="text-lg">{item.icon}</span>
+              <span>{item.name}</span>
+            </div>
+            {showBadge && (
+              <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 dark:bg-red-600 rounded-full">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </Link>
+        )
+      })}
+    </nav>
   )
 }
 
@@ -68,12 +105,12 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
+          <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
             <Link href="/admin" className="flex items-center space-x-3">
               {brandSettings.logoUrl ? (
                 <img 
@@ -88,7 +125,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
                   </span>
                 </div>
               )}
-              <span className="font-bold text-lg text-gray-800">{brandSettings.siteName}</span>
+              <span className="font-bold text-lg text-gray-800 dark:text-gray-100">{brandSettings.siteName}</span>
             </Link>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -99,36 +136,10 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-            {navigation.map((item) => {
-              const isActive = router.pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-emerald-100 text-emerald-700 border-r-2 border-emerald-500'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <div className="flex items-center space-x-3">
-                    <span className="text-lg">{item.icon}</span>
-                    <span>{item.name}</span>
-                  </div>
-                  {item.badge && (
-                    <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              )
-            })}
-          </nav>
+          <NavigationWithNotifications sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
           {/* User section */}
-          <div className="p-4 border-t border-gray-200">
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-3 mb-4">
               <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center">
                 <span className="text-sm font-medium text-gray-700">A</span>
@@ -159,7 +170,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
       {/* Main content */}
       <div className="lg:ml-64">
         {/* Top bar */}
-        <div className="sticky top-0 z-10 bg-white shadow-sm border-b border-gray-200">
+        <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between h-16 px-4">
             <div className="flex items-center space-x-4">
               <button
@@ -195,7 +206,7 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
         {/* Page content */}
         <main className="flex-1">
           {/* Mobile date selector */}
-          <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3">
+          <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
             <DateSelector />
           </div>
           {children}
@@ -207,5 +218,9 @@ function AdminLayoutContent({ children }: AdminLayoutProps) {
 
 // Main AdminLayout component
 export default function AdminLayout({ children }: AdminLayoutProps) {
-  return <AdminLayoutContent>{children}</AdminLayoutContent>
+  return (
+    <NotificationProvider>
+      <AdminLayoutContent>{children}</AdminLayoutContent>
+    </NotificationProvider>
+  )
 }

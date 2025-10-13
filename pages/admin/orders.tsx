@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/router'
 import AdminLayout from '../../components/admin/admin-layout'
+import ErrorBoundary from '../../src/components/ErrorBoundary'
 import { useAdminDate } from '../../src/lib/admin-date-context'
+import { useSession } from 'next-auth/react'
 
 // Utility function to format dates consistently (avoiding hydration mismatch)
 const formatDate = (dateString: string) => {
@@ -37,6 +40,8 @@ interface Order {
 }
 
 export default function AdminOrdersPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const { getDateFilter } = useAdminDate()
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -47,10 +52,21 @@ export default function AdminOrdersPage() {
   const [showBulkActions, setShowBulkActions] = useState(false)
   const [showOrderDetails, setShowOrderDetails] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [isUpdating, setIsUpdating] = useState(false)
+
+  // Redirect if not admin
+  useEffect(() => {
+    if (status === 'loading') return
+    if (!session || session.user?.role !== 'ADMIN') {
+      router.push('/admin')
+    }
+  }, [session, status, router])
 
   useEffect(() => {
-    fetchOrders()
-  }, [])
+    if (session?.user?.role === 'ADMIN') {
+      fetchOrders()
+    }
+  }, [session])
 
   // Handle customer filtering from URL params
   useEffect(() => {
@@ -104,6 +120,13 @@ export default function AdminOrdersPage() {
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
+      // Validate status
+      if (!validateStatusUpdate(newStatus)) {
+        alert('Invalid status provided')
+        return
+      }
+
+      setIsUpdating(true)
       const response = await fetch(`/api/orders/${orderId}`, {
         method: 'PUT',
         headers: {
@@ -123,6 +146,8 @@ export default function AdminOrdersPage() {
     } catch (error) {
       console.error('Error updating order status:', error)
       alert('Failed to update order status')
+    } finally {
+      setIsUpdating(false)
     }
   }
 
@@ -144,6 +169,14 @@ export default function AdminOrdersPage() {
 
   const handleBulkStatusUpdate = async (newStatus: string) => {
     try {
+      // Validate bulk update
+      const validationError = validateBulkStatusUpdate(newStatus, selectedOrders)
+      if (validationError) {
+        alert(validationError)
+        return
+      }
+
+      setIsUpdating(true)
       const promises = selectedOrders.map(orderId =>
         fetch(`/api/orders/${orderId}`, {
           method: 'PUT',
@@ -168,6 +201,8 @@ export default function AdminOrdersPage() {
     } catch (error) {
       console.error('Error updating bulk orders:', error)
       alert('Failed to update some orders')
+    } finally {
+      setIsUpdating(false)
     }
   }
 
@@ -243,8 +278,40 @@ export default function AdminOrdersPage() {
     }
   }
 
+  // Input validation functions
+  const validateStatusUpdate = (status: string) => {
+    const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled']
+    return validStatuses.includes(status.toLowerCase())
+  }
+
+  const validateBulkStatusUpdate = (status: string, orderIds: string[]) => {
+    if (!validateStatusUpdate(status)) {
+      return 'Invalid status provided'
+    }
+    if (!orderIds || orderIds.length === 0) {
+      return 'No orders selected'
+    }
+    return null
+  }
+
+  // Show loading state
+  if (status === 'loading' || isLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-emerald-500"></div>
+        </div>
+      </AdminLayout>
+    )
+  }
+
+  if (!session || session.user?.role !== 'ADMIN') {
+    return null
+  }
+
   return (
-    <AdminLayout>
+    <ErrorBoundary>
+      <AdminLayout>
       <div className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <nav className="mb-6">
@@ -309,7 +376,7 @@ export default function AdminOrdersPage() {
         )}
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <input
@@ -337,20 +404,15 @@ export default function AdminOrdersPage() {
 
         {/* Orders List */}
         <div className="space-y-6">
-          {isLoading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading orders...</p>
-            </div>
-          ) : filteredOrders.length === 0 ? (
+          {filteredOrders.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500">No orders found</p>
             </div>
           ) : (
             filteredOrders.map((order) => (
-            <div key={order.id} className="bg-white rounded-lg shadow-sm border overflow-hidden">
+            <div key={order.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
               {/* Order Header */}
-              <div className="p-6 border-b bg-gray-50">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <input
@@ -411,25 +473,28 @@ export default function AdminOrdersPage() {
                   {order.status === 'pending' && (
                     <button
                       onClick={() => updateOrderStatus(order.id, 'processing')}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                      disabled={isUpdating}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Start Processing
+                      {isUpdating ? 'Updating...' : 'Start Processing'}
                     </button>
                   )}
                   {order.status === 'processing' && (
                     <button
                       onClick={() => updateOrderStatus(order.id, 'shipped')}
-                      className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors"
+                      disabled={isUpdating}
+                      className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Mark Shipped
+                      {isUpdating ? 'Updating...' : 'Mark Shipped'}
                     </button>
                   )}
                   {order.status === 'shipped' && (
                     <button
                       onClick={() => updateOrderStatus(order.id, 'delivered')}
-                      className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors"
+                      disabled={isUpdating}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Mark Delivered
+                      {isUpdating ? 'Updating...' : 'Mark Delivered'}
                     </button>
                   )}
                   <button 
@@ -463,7 +528,7 @@ export default function AdminOrdersPage() {
         {/* Order Details Modal */}
         {showOrderDetails && selectedOrder && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-4 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 xl:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="relative top-4 mx-auto p-5 border border-gray-200 dark:border-gray-700 w-11/12 md:w-3/4 lg:w-2/3 xl:w-1/2 shadow-lg rounded-md bg-white dark:bg-gray-800">
               <div className="mt-3">
                 {/* Modal Header */}
                 <div className="flex items-center justify-between mb-6">
@@ -530,7 +595,7 @@ export default function AdminOrdersPage() {
                 {/* Order Information Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                   {/* Customer Information */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
                     <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                       <span className="text-xl mr-2">👤</span>
                       Customer Information
@@ -556,7 +621,7 @@ export default function AdminOrdersPage() {
                   </div>
 
                   {/* Delivery Information */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
                     <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                       <span className="text-xl mr-2">🚚</span>
                       Delivery Information
@@ -680,6 +745,7 @@ export default function AdminOrdersPage() {
           </div>
         )}
       </div>
-    </AdminLayout>
+      </AdminLayout>
+    </ErrorBoundary>
   )
 }

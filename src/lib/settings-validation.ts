@@ -88,7 +88,7 @@ const validationRules = {
     },
     paymentGateway: {
       required: true,
-      enum: ['stripe', 'paypal', 'square']
+      enum: ['peach', 'stripe', 'paypal', 'square', 'payfast']
     }
   },
   notifications: {

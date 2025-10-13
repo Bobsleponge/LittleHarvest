@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../src/lib/auth'
-import { prisma } from '../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../src/lib/supabaseClient'
 import { logger } from '../../../src/lib/logger'
 import { withAPIRateLimit, RATE_LIMITS } from '../../../src/lib/rate-limit'
 import { withCSRFProtection } from '../../../src/lib/csrf'
@@ -40,22 +40,32 @@ export default withAPIRateLimit(
 async function getChildProfiles(req: NextApiRequest, res: NextApiResponse, userId: string) {
   try {
     // Get user's profile and children
-    const profile = await prisma.profile.findUnique({
-      where: { userId },
-      include: {
-        children: {
-          where: { isActive: true },
-          orderBy: { createdAt: 'desc' }
-        }
-      }
-    })
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('Profile')
+      .select(`
+        *,
+        children:ChildProfile(
+          *
+        )
+      `)
+      .eq('userId', userId)
+      .single()
+
+    if (profileError && profileError.code !== 'PGRST116') {
+      throw new Error(`Failed to fetch profile: ${profileError.message}`)
+    }
 
     if (!profile) {
       return res.status(404).json({ error: 'Profile not found' })
     }
 
+    // Filter active children and sort by creation date
+    const activeChildren = (profile.children || [])
+      .filter((child: any) => child.isActive)
+      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
     // Transform child profiles for frontend
-    const childProfiles = profile.children.map(child => ({
+    const childProfiles = activeChildren.map((child: any) => ({
       id: child.id,
       name: child.name,
       dateOfBirth: child.dateOfBirth,
@@ -103,27 +113,39 @@ async function createChildProfile(req: NextApiRequest, res: NextApiResponse, use
     const { name, dateOfBirth, gender, allergies, dietaryRequirements, foodPreferences, medicalNotes } = validation.data
 
     // Get user's profile
-    const profile = await prisma.profile.findUnique({
-      where: { userId }
-    })
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('Profile')
+      .select('id')
+      .eq('userId', userId)
+      .single()
+
+    if (profileError && profileError.code !== 'PGRST116') {
+      throw new Error(`Failed to fetch profile: ${profileError.message}`)
+    }
 
     if (!profile) {
       return res.status(404).json({ error: 'Profile not found' })
     }
 
     // Create child profile
-    const childProfile = await prisma.childProfile.create({
-      data: {
+    const { data: childProfile, error: createError } = await supabaseAdmin
+      .from('ChildProfile')
+      .insert([{
         profileId: profile.id,
         name,
-        dateOfBirth: new Date(dateOfBirth),
+        dateOfBirth: new Date(dateOfBirth).toISOString(),
         gender,
         allergies: allergies ? JSON.stringify(allergies) : null,
         dietaryRequirements: dietaryRequirements ? JSON.stringify(dietaryRequirements) : null,
         foodPreferences: foodPreferences ? JSON.stringify(foodPreferences) : null,
         medicalNotes
-      }
-    })
+      }])
+      .select()
+      .single()
+
+    if (createError) {
+      throw new Error(`Failed to create child profile: ${createError.message}`)
+    }
 
     // Transform response
     const response = {

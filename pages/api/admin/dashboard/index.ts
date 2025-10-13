@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../../src/lib/auth'
-import { prisma } from '../../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../../src/lib/supabaseClient'
 import { logger } from '../../../../src/lib/logger'
 import { withAPIRateLimit, RATE_LIMITS } from '../../../../src/lib/rate-limit'
 
@@ -19,12 +19,13 @@ export default withAPIRateLimit(
     }
 
     // Check if user is admin
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true }
-    })
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('User')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
 
-    if (user?.role !== 'ADMIN') {
+    if (userError || user?.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Admin access required' })
     }
 
@@ -76,64 +77,103 @@ async function getDashboardData(req: NextApiRequest, res: NextApiResponse) {
         break
     }
 
-    // Build date filter for Prisma
+    // Build date filter for Supabase
     const dateFilter = startDate && endDate ? {
-      createdAt: {
-        gte: startDate,
-        lte: endDate
-      }
-    } : {}
+      gte: startDate.toISOString(),
+      lte: endDate.toISOString()
+    } : undefined
 
     // Get basic counts
     const [
-      totalProducts,
-      totalOrders,
-      totalCustomers,
-      totalIngredients,
-      pendingOrders,
-      lowStockProducts,
-      todayOrders,
-      todayRevenue
+      totalProductsResult,
+      totalOrdersResult,
+      totalCustomersResult,
+      pendingOrdersResult,
+      lowStockProductsResult,
+      todayOrdersResult,
+      todayRevenueResult
     ] = await Promise.all([
-      prisma.product.count(),
-      prisma.order.count({ where: dateFilter }),
-      prisma.user.count({ where: { role: 'CUSTOMER', ...dateFilter } }),
-      prisma.ingredient.count(),
-      prisma.order.count({ where: { status: 'PENDING', ...dateFilter } }),
-      prisma.product.count({ where: { isActive: true } }), // Mock low stock for now
-      prisma.order.count({ 
-        where: { 
-          createdAt: {
-            gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
-            lte: now
-          }
-        }
-      }),
-      prisma.order.aggregate({
-        where: {
-          createdAt: {
-            gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
-            lte: now
-          }
-        },
-        _sum: { totalZar: true }
-      })
+      supabaseAdmin.from('Product').select('*', { count: 'exact', head: true }),
+      dateFilter ? 
+        supabaseAdmin.from('Order').select('*', { count: 'exact', head: true })
+          .gte('createdAt', dateFilter.gte)
+          .lte('createdAt', dateFilter.lte) :
+        supabaseAdmin.from('Order').select('*', { count: 'exact', head: true }),
+      dateFilter ?
+        supabaseAdmin.from('User').select('*', { count: 'exact', head: true })
+          .eq('role', 'CUSTOMER')
+          .gte('createdAt', dateFilter.gte)
+          .lte('createdAt', dateFilter.lte) :
+        supabaseAdmin.from('User').select('*', { count: 'exact', head: true })
+          .eq('role', 'CUSTOMER'),
+      dateFilter ?
+        supabaseAdmin.from('Order').select('*', { count: 'exact', head: true })
+          .eq('status', 'PENDING')
+          .gte('createdAt', dateFilter.gte)
+          .lte('createdAt', dateFilter.lte) :
+        supabaseAdmin.from('Order').select('*', { count: 'exact', head: true })
+          .eq('status', 'PENDING'),
+      supabaseAdmin.from('Product').select('*', { count: 'exact', head: true })
+        .eq('isActive', true), // Mock low stock for now
+      supabaseAdmin.from('Order').select('*', { count: 'exact', head: true })
+        .gte('createdAt', new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString())
+        .lte('createdAt', now.toISOString()),
+      supabaseAdmin.from('Order').select('totalZar')
+        .gte('createdAt', new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString())
+        .lte('createdAt', now.toISOString())
     ])
 
+    // Calculate today's revenue
+    const todayRevenue = todayRevenueResult.data?.reduce((sum, order) => sum + (order.totalZar || 0), 0) || 0
+
+    const totalProducts = totalProductsResult.count || 0
+    const totalOrders = totalOrdersResult.count || 0
+    const totalCustomers = totalCustomersResult.count || 0
+    const pendingOrders = pendingOrdersResult.count || 0
+    const lowStockProducts = lowStockProductsResult.count || 0
+    const todayOrders = todayOrdersResult.count || 0
+
     // Get recent orders
-    const recentOrders = await prisma.order.findMany({
-      where: dateFilter,
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: {
-          select: { name: true, email: true }
-        },
-        items: {
-          select: { quantity: true }
-        }
-      }
-    })
+    let recentOrdersQuery = supabaseAdmin
+      .from('Order')
+      .select(`
+        *,
+        user:User(name, email),
+        items:OrderItem(quantity)
+      `)
+      .order('createdAt', { ascending: false })
+      .limit(5)
+
+    if (dateFilter) {
+      recentOrdersQuery = recentOrdersQuery
+        .gte('createdAt', dateFilter.gte)
+        .lte('createdAt', dateFilter.lte)
+    }
+
+    const { data: recentOrders, error: recentOrdersError } = await recentOrdersQuery
+
+    if (recentOrdersError) {
+      throw new Error(`Failed to fetch recent orders: ${recentOrdersError.message}`)
+    }
+
+    // Get total revenue for date range
+    let totalRevenueQuery = supabaseAdmin
+      .from('Order')
+      .select('totalZar')
+
+    if (dateFilter) {
+      totalRevenueQuery = totalRevenueQuery
+        .gte('createdAt', dateFilter.gte)
+        .lte('createdAt', dateFilter.lte)
+    }
+
+    const { data: totalRevenueData, error: totalRevenueError } = await totalRevenueQuery
+
+    if (totalRevenueError) {
+      throw new Error(`Failed to fetch total revenue: ${totalRevenueError.message}`)
+    }
+
+    const totalRevenue = totalRevenueData?.reduce((sum, order) => sum + (order.totalZar || 0), 0) || 0
 
     // Get recent activity (mock for now - would need activity log table)
     const recentActivity = [
@@ -147,35 +187,30 @@ async function getDashboardData(req: NextApiRequest, res: NextApiResponse) {
     ]
 
     // Calculate derived metrics
-    const totalRevenue = await prisma.order.aggregate({
-      where: dateFilter,
-      _sum: { totalZar: true }
-    })
-
-    const averageOrderValue = totalOrders > 0 ? (totalRevenue._sum.totalZar || 0) / totalOrders : 0
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
     const conversionRate = 0 // Would need visitor tracking
 
     const dashboardData = {
       stats: {
         totalProducts,
         totalOrders,
-        totalRevenue: totalRevenue._sum.totalZar || 0,
+        totalRevenue,
         totalCustomers,
         pendingOrders,
         lowStockProducts,
         todayOrders,
-        todayRevenue: todayRevenue._sum.totalZar || 0,
+        todayRevenue,
         conversionRate,
         averageOrderValue
       },
-      recentOrders: recentOrders.map(order => ({
+      recentOrders: (recentOrders || []).map(order => ({
         id: order.id,
         customerName: order.user?.name || 'Unknown Customer',
         customerEmail: order.user?.email || '',
         total: order.totalZar,
         status: order.status.toLowerCase(),
-        date: order.createdAt.toISOString(),
-        items: order.items.reduce((sum, item) => sum + item.quantity, 0)
+        date: order.createdAt,
+        items: order.items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0
       })),
       recentActivity
     }

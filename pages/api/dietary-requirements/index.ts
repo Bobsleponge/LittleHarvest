@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../src/lib/auth'
-import { prisma } from '../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../src/lib/supabaseClient'
 import { logger } from '../../../src/lib/logger'
 import { withAPIRateLimit, RATE_LIMITS } from '../../../src/lib/rate-limit'
 import { withCSRFProtection } from '../../../src/lib/csrf'
@@ -34,14 +34,19 @@ export default withCSRFProtection(withAPIRateLimit(
 
 async function getDietaryRequirements(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const dietaryRequirements = await prisma.dietaryRequirement.findMany({
-      where: { isActive: true },
-      orderBy: { name: 'asc' }
-    })
+    const { data: dietaryRequirements, error: dietaryRequirementsError } = await supabaseAdmin
+      .from('DietaryRequirement')
+      .select('*')
+      .eq('isActive', true)
+      .order('name', { ascending: true })
 
-    logger.info('Dietary requirements retrieved', { count: dietaryRequirements.length })
+    if (dietaryRequirementsError) {
+      throw new Error(`Failed to fetch dietary requirements: ${dietaryRequirementsError.message}`)
+    }
 
-    res.status(200).json({ dietaryRequirements })
+    logger.info('Dietary requirements retrieved', { count: dietaryRequirements?.length || 0 })
+
+    res.status(200).json({ dietaryRequirements: dietaryRequirements || [] })
 
   } catch (error) {
     logger.error('Get dietary requirements error', { 

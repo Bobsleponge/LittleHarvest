@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next'
-import { prisma } from '../../src/lib/prisma'
+import { supabaseAdmin } from '../../src/lib/supabaseClient'
 import bcrypt from 'bcryptjs'
 
 // Development accounts for quick login
@@ -56,23 +56,56 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Invalid email' })
     }
 
-    // Use upsert to create or update user
+    // Use Supabase to create or update user
     const hashedPassword = await bcrypt.hash('dev123', 10)
-    const user = await prisma.user.upsert({
-      where: { email: devAccount.email },
-      update: {
-        password: hashedPassword,
-        role: devAccount.role,
-        name: devAccount.name,
-      },
-      create: {
-        email: devAccount.email,
-        name: devAccount.name,
-        role: devAccount.role,
-        emailVerified: new Date(),
-        password: hashedPassword,
-      },
-    })
+    
+    // First, try to find existing user
+    const { data: existingUser } = await supabaseAdmin
+      .from('User')
+      .select('*')
+      .eq('email', devAccount.email)
+      .single()
+
+    let user
+    if (existingUser) {
+      // Update existing user
+      const { data: updatedUser, error: updateError } = await supabaseAdmin
+        .from('User')
+        .update({
+          password: hashedPassword,
+          role: devAccount.role,
+          name: devAccount.name,
+          updatedAt: new Date().toISOString(),
+        })
+        .eq('email', devAccount.email)
+        .select()
+        .single()
+
+      if (updateError) {
+        throw new Error(`Failed to update user: ${updateError.message}`)
+      }
+      user = updatedUser
+    } else {
+      // Create new user
+      const { data: newUser, error: createError } = await supabaseAdmin
+        .from('User')
+        .insert({
+          email: devAccount.email,
+          name: devAccount.name,
+          role: devAccount.role,
+          emailVerified: new Date().toISOString(),
+          password: hashedPassword,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+        .select()
+        .single()
+
+      if (createError) {
+        throw new Error(`Failed to create user: ${createError.message}`)
+      }
+      user = newUser
+    }
 
     return res.status(200).json({
       success: true,

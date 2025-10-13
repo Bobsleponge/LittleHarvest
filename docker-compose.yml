@@ -46,19 +46,19 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis for caching (optional)
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+  # Redis for caching (using cloud Redis - local container disabled)
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 3
 
   # Nginx reverse proxy (for production)
   nginx:
@@ -110,7 +110,7 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
+  # redis_data:  # Commented out since using cloud Redis
   prometheus_data:
   grafana_data:
 

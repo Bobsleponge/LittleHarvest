@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/router'
 import AdminLayout from '../../components/admin/admin-layout'
+import ErrorBoundary from '../../src/components/ErrorBoundary'
 import { Button } from '../../src/components/ui/button'
 import { Input } from '../../src/components/ui/input'
 import { Label } from '../../src/components/ui/label'
@@ -66,6 +69,8 @@ interface UISettings {
 }
 
 export default function UIManagement() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const [settings, setSettings] = useState<UISettings>({
     brand: {
       siteName: 'Little Harvest',
@@ -109,9 +114,16 @@ export default function UIManagement() {
   const [csrfToken, setCsrfToken] = useState<string>('')
 
   useEffect(() => {
+    // Redirect if not admin
+    if (status === 'loading') return
+    if (!session?.user?.role || session.user.role !== 'ADMIN') {
+      router.push('/admin')
+      return
+    }
+    
     fetchUISettings()
     fetchCSRFToken()
-  }, [])
+  }, [status, session, router])
 
   const fetchCSRFToken = async () => {
     try {
@@ -254,30 +266,39 @@ export default function UIManagement() {
 
   if (loading) {
     return (
-      <AdminLayout>
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading UI settings...</p>
+      <ErrorBoundary>
+        <AdminLayout>
+          <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-300">Loading UI settings...</p>
+            </div>
           </div>
-        </div>
-      </AdminLayout>
+        </AdminLayout>
+      </ErrorBoundary>
     )
   }
 
+  // Redirect if not admin
+  if (!session?.user?.role || session.user.role !== 'ADMIN') {
+    return null
+  }
+
   return (
-    <AdminLayout>
-      <div className="container mx-auto px-4 py-8">
+    <ErrorBoundary>
+      <AdminLayout>
+        <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">UI Management</h1>
-            <p className="text-gray-600">Customize your website's appearance, branding, and layout.</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">UI Management</h1>
+            <p className="text-gray-600 dark:text-gray-400">Customize your website's appearance, branding, and layout.</p>
           </div>
           <div className="flex items-center space-x-3">
             <Button
               variant="outline"
               onClick={() => setPreviewMode(!previewMode)}
+              aria-label={previewMode ? 'Exit preview mode' : 'Enter preview mode'}
               className="flex items-center space-x-2"
             >
               <Eye className="h-4 w-4" />
@@ -287,6 +308,7 @@ export default function UIManagement() {
               variant="outline"
               onClick={resetSettings}
               disabled={saving}
+              aria-label="Reset all UI settings to defaults"
               className="flex items-center space-x-2"
             >
               <RotateCcw className="h-4 w-4" />
@@ -295,6 +317,7 @@ export default function UIManagement() {
             <Button
               onClick={saveSettings}
               disabled={saving}
+              aria-label="Save UI settings changes"
               className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700"
             >
               <Save className="h-4 w-4" />
@@ -307,8 +330,8 @@ export default function UIManagement() {
         {message && (
           <div className={`mb-6 p-4 rounded-lg flex items-center space-x-2 ${
             message.type === 'success' 
-              ? 'bg-green-50 text-green-800 border border-green-200' 
-              : 'bg-red-50 text-red-800 border border-red-200'
+              ? 'bg-green-50 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700' 
+              : 'bg-red-50 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700'
           }`}>
             {message.type === 'success' ? (
               <CheckCircle className="h-5 w-5" />
@@ -321,12 +344,12 @@ export default function UIManagement() {
 
         {/* Preview Mode Banner */}
         {previewMode && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg">
             <div className="flex items-center space-x-2">
-              <Eye className="h-5 w-5 text-blue-600" />
-              <span className="text-blue-800 font-medium">Preview Mode Active</span>
+              <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <span className="text-blue-800 dark:text-blue-200 font-medium">Preview Mode Active</span>
             </div>
-            <p className="text-blue-700 text-sm mt-1">
+            <p className="text-blue-700 dark:text-blue-300 text-sm mt-1">
               Changes are shown in real-time. Click "Save Changes" to apply them permanently.
             </p>
           </div>
@@ -335,27 +358,27 @@ export default function UIManagement() {
         {/* Settings Tabs */}
         <Tabs defaultValue="brand" className="space-y-6">
           <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="brand" className="flex items-center space-x-2">
+            <TabsTrigger value="brand" className="flex items-center space-x-2" aria-label="Brand settings tab">
               <Settings className="h-4 w-4" />
               <span>Brand</span>
             </TabsTrigger>
-            <TabsTrigger value="colors" className="flex items-center space-x-2">
+            <TabsTrigger value="colors" className="flex items-center space-x-2" aria-label="Color settings tab">
               <Palette className="h-4 w-4" />
               <span>Colors</span>
             </TabsTrigger>
-            <TabsTrigger value="typography" className="flex items-center space-x-2">
+            <TabsTrigger value="typography" className="flex items-center space-x-2" aria-label="Typography settings tab">
               <Type className="h-4 w-4" />
               <span>Typography</span>
             </TabsTrigger>
-            <TabsTrigger value="layout" className="flex items-center space-x-2">
+            <TabsTrigger value="layout" className="flex items-center space-x-2" aria-label="Layout settings tab">
               <Layout className="h-4 w-4" />
               <span>Layout</span>
             </TabsTrigger>
-            <TabsTrigger value="social" className="flex items-center space-x-2">
+            <TabsTrigger value="social" className="flex items-center space-x-2" aria-label="Social media settings tab">
               <Globe className="h-4 w-4" />
               <span>Social</span>
             </TabsTrigger>
-            <TabsTrigger value="contact" className="flex items-center space-x-2">
+            <TabsTrigger value="contact" className="flex items-center space-x-2" aria-label="Contact information settings tab">
               <Phone className="h-4 w-4" />
               <span>Contact</span>
             </TabsTrigger>
@@ -719,5 +742,6 @@ export default function UIManagement() {
         </Tabs>
       </div>
     </AdminLayout>
+    </ErrorBoundary>
   )
 }

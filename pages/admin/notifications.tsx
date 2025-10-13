@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/router'
 import AdminLayout from '../../components/admin/admin-layout'
+import ErrorBoundary from '../../src/components/ErrorBoundary'
 import { useColorSettings } from '../../src/lib/ui-settings-context'
 
 // Utility function to format dates consistently
@@ -61,6 +64,8 @@ interface Order {
 }
 
 export default function AdminNotificationsPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [orders, setOrders] = useState<Order[]>([])
@@ -70,8 +75,15 @@ export default function AdminNotificationsPage() {
 
   // Fetch data and generate notifications
   useEffect(() => {
+    // Redirect if not admin
+    if (status === 'loading') return
+    if (!session?.user?.role || session.user.role !== 'ADMIN') {
+      router.push('/admin')
+      return
+    }
+    
     fetchDataAndGenerateNotifications()
-  }, [])
+  }, [status, session, router])
 
   const fetchDataAndGenerateNotifications = async () => {
     setIsLoading(true)
@@ -295,49 +307,59 @@ export default function AdminNotificationsPage() {
 
   if (isLoading) {
     return (
-      <AdminLayout>
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center py-12">
-            <div 
-              className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4"
-              style={{ borderColor: colorSettings.primary }}
-            ></div>
-            <p className="text-gray-600">Loading notifications...</p>
+      <ErrorBoundary>
+        <AdminLayout>
+          <div className="container mx-auto px-4 py-8">
+            <div className="text-center py-12">
+              <div 
+                className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4"
+                style={{ borderColor: colorSettings.primary }}
+              ></div>
+              <p className="text-gray-600 dark:text-gray-300">Loading notifications...</p>
+            </div>
           </div>
-        </div>
-      </AdminLayout>
+        </AdminLayout>
+      </ErrorBoundary>
     )
   }
 
+  // Redirect if not admin
+  if (!session?.user?.role || session.user.role !== 'ADMIN') {
+    return null
+  }
+
   return (
-    <AdminLayout>
-      <div className="container mx-auto px-4 py-8">
+    <ErrorBoundary>
+      <AdminLayout>
+        <div className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <nav className="mb-6">
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <Link href="/admin" className="hover:text-gray-800">Admin</Link>
+          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+            <Link href="/admin" className="hover:text-gray-800 dark:hover:text-gray-200">Admin</Link>
             <span>›</span>
-            <span className="text-gray-900">Notifications</span>
+            <span className="text-gray-900 dark:text-gray-100">Notifications</span>
           </div>
         </nav>
 
         {/* Page Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Notifications</h1>
-            <p className="text-gray-600">Real-time alerts from your orders and inventory</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Notifications</h1>
+            <p className="text-gray-600 dark:text-gray-400">Real-time alerts from your orders and inventory</p>
           </div>
           <div className="flex space-x-3">
             <button
               onClick={refreshNotifications}
-              className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+              aria-label="Refresh notifications data"
+              className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               Refresh
             </button>
             {unreadCount > 0 && (
               <button
                 onClick={markAllAsRead}
-                className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                aria-label="Mark all notifications as read"
+                className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Mark All Read
               </button>
@@ -347,11 +369,11 @@ export default function AdminNotificationsPage() {
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Alerts</p>
-                <p className="text-2xl font-bold text-gray-900">{notifications.length}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Alerts</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{notifications.length}</p>
               </div>
               <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
                 <span className="text-2xl">🔔</span>
@@ -359,10 +381,10 @@ export default function AdminNotificationsPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Unread</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Unread</p>
                 <p className="text-2xl font-bold text-red-600">{unreadCount}</p>
               </div>
               <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center">
@@ -371,10 +393,10 @@ export default function AdminNotificationsPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">High Priority</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">High Priority</p>
                 <p className="text-2xl font-bold text-orange-600">{highPriorityCount}</p>
               </div>
               <div className="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center">
@@ -383,10 +405,10 @@ export default function AdminNotificationsPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Today</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Today</p>
                 <p className="text-2xl font-bold text-green-600">{todayCount}</p>
               </div>
               <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -401,6 +423,8 @@ export default function AdminNotificationsPage() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setFilter('all')}
+              aria-pressed={filter === 'all'}
+              aria-label="Show all notifications"
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 filter === 'all' 
                   ? 'text-white' 
@@ -412,6 +436,8 @@ export default function AdminNotificationsPage() {
             </button>
             <button
               onClick={() => setFilter('unread')}
+              aria-pressed={filter === 'unread'}
+              aria-label="Show only unread notifications"
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 filter === 'unread' 
                   ? 'text-white' 
@@ -423,6 +449,8 @@ export default function AdminNotificationsPage() {
             </button>
             <button
               onClick={() => setFilter('new_order')}
+              aria-pressed={filter === 'new_order'}
+              aria-label="Show only new order notifications"
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 filter === 'new_order' 
                   ? 'text-white' 
@@ -434,6 +462,8 @@ export default function AdminNotificationsPage() {
             </button>
             <button
               onClick={() => setFilter('low_stock')}
+              aria-pressed={filter === 'low_stock'}
+              aria-label="Show only stock alert notifications"
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 filter === 'low_stock' 
                   ? 'text-white' 
@@ -564,5 +594,6 @@ export default function AdminNotificationsPage() {
         </div>
       </div>
     </AdminLayout>
+    </ErrorBoundary>
   )
 }

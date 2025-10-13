@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../../src/lib/auth'
-import { prisma } from '../../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../../src/lib/supabaseClient'
 import { logger } from '../../../../src/lib/logger'
 import { withCSRFProtection } from '../../../../src/lib/csrf'
 import { withAPIRateLimit, RATE_LIMITS, getRateLimitKey } from '../../../../src/lib/rate-limit'

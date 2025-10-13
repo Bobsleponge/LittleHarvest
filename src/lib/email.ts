@@ -1,7 +1,7 @@
 import { logger } from '@/lib/logger'
 import nodemailer from 'nodemailer'
 import { createTransport } from 'nodemailer'
-import { prisma } from './prisma'
+import { supabaseAdmin } from './supabaseClient'
 
 // Email service configuration
 const emailConfig = {
@@ -29,15 +29,18 @@ transporter.verify((error, success) => {
 // Get UI settings for dynamic colors
 async function getUISettings() {
   try {
-    const uiSettings = await prisma.storeSettings.findMany({
-      where: {
-        category: 'ui',
-        isActive: true
-      },
-      orderBy: { key: 'asc' }
-    })
+    const { data: uiSettings, error } = await supabaseAdmin
+      .from('StoreSettings')
+      .select('*')
+      .eq('category', 'ui')
+      .eq('isActive', true)
+      .order('key', { ascending: true })
 
-    const settings = uiSettings.reduce((acc, setting) => {
+    if (error) {
+      throw new Error(`Failed to fetch UI settings: ${error.message}`)
+    }
+
+    const settings = (uiSettings || []).reduce((acc, setting) => {
       try {
         acc[setting.key] = JSON.parse(setting.value)
       } catch {

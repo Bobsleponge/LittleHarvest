@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../src/lib/auth'
-import { prisma } from '../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../src/lib/supabaseClient'
 import { logger } from '../../../src/lib/logger'
 import { withAPIRateLimit, RATE_LIMITS } from '../../../src/lib/rate-limit'
 import { withCSRFProtection } from '../../../src/lib/csrf'
@@ -44,34 +44,34 @@ export default withCSRFProtection(withAPIRateLimit(
 
 async function getOrder(req: NextApiRequest, res: NextApiResponse, userId: string, orderId: string) {
   try {
-    const order = await prisma.order.findFirst({
-      where: {
-        id: orderId,
-        userId
-      },
-      include: {
-        items: {
-          include: {
-            product: {
-              include: {
-                ageGroup: true,
-                texture: true
-              }
-            },
-            portionSize: true,
-            package: true
-          }
-        },
-        address: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        }
-      }
-    })
+    const { data: order, error: orderError } = await supabaseAdmin
+      .from('Order')
+      .select(`
+        *,
+        items:OrderItem(
+          *,
+          product:Product(
+            *,
+            ageGroup:AgeGroup(*),
+            texture:Texture(*)
+          ),
+          portionSize:PortionSize(*),
+          package:Package(*)
+        ),
+        address:Address(*),
+        user:User(
+          id,
+          name,
+          email
+        )
+      `)
+      .eq('id', orderId)
+      .eq('userId', userId)
+      .single()
+
+    if (orderError && orderError.code !== 'PGRST116') {
+      throw new Error(`Failed to fetch order: ${orderError.message}`)
+    }
 
     if (!order) {
       return res.status(404).json({ error: 'Order not found' })
@@ -81,17 +81,17 @@ async function getOrder(req: NextApiRequest, res: NextApiResponse, userId: strin
     const transformedOrder = {
       id: order.id,
       orderNumber: order.orderNumber,
-      customerName: order.user.name,
-      customerEmail: order.user.email,
+      customerName: order.user?.name || 'Unknown Customer',
+      customerEmail: order.user?.email || '',
       date: order.createdAt,
       status: order.status.toLowerCase(),
       total: order.totalZar,
-      items: order.items.map(item => ({
+      items: (order.items || []).map((item: any) => ({
         id: item.id,
-        name: item.product.name,
+        name: item.product?.name || 'Unknown Product',
         quantity: item.quantity,
         price: item.unitPriceZar,
-        image: item.product.imageUrl || '🍎'
+        image: item.product?.imageUrl || '🍎'
       })),
       deliveryAddress: order.address ? 
         `${order.address.street}, ${order.address.city}, ${order.address.province} ${order.address.postalCode}` : 

@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../../src/lib/auth'
-import { prisma } from '../../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../../src/lib/supabaseClient'
 import { logger } from '../../../../src/lib/logger'
 import { withAPIRateLimit, RATE_LIMITS } from '../../../../src/lib/rate-limit'
 
@@ -19,12 +19,13 @@ export default withAPIRateLimit(
     }
 
     // Check if user is admin
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true }
-    })
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('User')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
 
-    if (user?.role !== 'ADMIN') {
+    if (userError || user?.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Admin access required' })
     }
 
@@ -49,38 +50,44 @@ export default withAPIRateLimit(
 async function getProducts(req: NextApiRequest, res: NextApiResponse) {
   try {
     // Fetch all products with their relationships for admin view
-    const products = await prisma.product.findMany({
-      include: {
-        ageGroup: true,
-        texture: true,
-        prices: {
-          include: { portionSize: true }
-        },
-        inventory: true
-      },
-      orderBy: { name: 'asc' }
-    })
+    const { data: products, error: productsError } = await supabaseAdmin
+      .from('Product')
+      .select(`
+        *,
+        ageGroup:AgeGroup(*),
+        texture:Texture(*),
+        prices:Price(
+          *,
+          portionSize:PortionSize(*)
+        ),
+        inventory:Inventory(*)
+      `)
+      .order('name', { ascending: true })
+
+    if (productsError) {
+      throw new Error(`Failed to fetch products: ${productsError.message}`)
+    }
 
     // Transform the data to match admin frontend expectations
-    const transformedProducts = products.map(product => ({
+    const transformedProducts = (products || []).map(product => ({
       id: product.id,
       name: product.name,
       description: product.description || '',
-      price: product.prices[0]?.amountZar || 0,
+      price: product.prices?.[0]?.amountZar || 0,
       image: '🍎', // Default emoji, can be enhanced later
       imageUrl: product.imageUrl || '',
       ageGroup: product.ageGroup?.name || '',
       texture: product.texture?.name || '',
       category: 'Baby Food', // Default category, can be enhanced later
-      stock: product.inventory[0]?.currentStock || 0,
-      minStock: product.inventory[0]?.weeklyLimit || 10,
-      maxStock: product.inventory[0]?.currentStock * 2 || 100,
-      unitCost: product.prices[0]?.amountZar * 0.6 || 0, // Mock cost calculation
+      stock: product.inventory?.[0]?.currentStock || 0,
+      minStock: product.inventory?.[0]?.weeklyLimit || 10,
+      maxStock: product.inventory?.[0]?.currentStock * 2 || 100,
+      unitCost: product.prices?.[0]?.amountZar * 0.6 || 0, // Mock cost calculation
       supplier: 'Little Harvest', // Default supplier
       status: product.isActive ? 'active' : 'inactive',
-      createdAt: product.createdAt.toISOString().split('T')[0],
-      updatedAt: product.updatedAt.toISOString().split('T')[0],
-      lastRestocked: product.updatedAt.toISOString().split('T')[0],
+      createdAt: product.createdAt.split('T')[0],
+      updatedAt: product.updatedAt.split('T')[0],
+      lastRestocked: product.updatedAt.split('T')[0],
       ingredients: product.contains ? product.contains.split(',').map(i => i.trim()) : [],
       allergens: product.mayContain ? product.mayContain.split(',').map(i => i.trim()) : [],
       nutritionInfo: { 
@@ -120,8 +127,9 @@ async function createProduct(req: NextApiRequest, res: NextApiResponse) {
     // Create slug from name
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
-    const product = await prisma.product.create({
-      data: {
+    const { data: product, error: productError } = await supabaseAdmin
+      .from('Product')
+      .insert([{
         name,
         slug,
         description,
@@ -131,15 +139,21 @@ async function createProduct(req: NextApiRequest, res: NextApiResponse) {
         mayContain: mayContain || '',
         imageUrl: imageUrl || '',
         isActive: true
-      },
-      include: {
-        ageGroup: true,
-        texture: true,
-        prices: {
-          include: { portionSize: true }
-        }
-      }
-    })
+      }])
+      .select(`
+        *,
+        ageGroup:AgeGroup(*),
+        texture:Texture(*),
+        prices:Price(
+          *,
+          portionSize:PortionSize(*)
+        )
+      `)
+      .single()
+
+    if (productError) {
+      throw new Error(`Failed to create product: ${productError.message}`)
+    }
 
     logger.info('Product created', { 
       productId: product.id,

@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # Main application
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:password@db:5432/littleharvest
+      - REDIS_URL=redis://redis:6379
+      - UPSTASH_REDIS_REST_URL=http://redis:6379
+      - UPSTASH_REDIS_REST_TOKEN=dummy_token_for_local
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - RESEND_FROM=Little Harvest <noreply@littleharvest.co.za>
+      - LOG_LEVEL=debug
+      - PROMETHEUS_ENABLED=true
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+  # Database
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=littleharvest
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Redis for caching and rate limiting
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+  # Grafana for metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:

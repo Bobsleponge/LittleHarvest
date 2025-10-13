@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../../src/lib/auth'
-import { prisma } from '../../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../../src/lib/supabaseClient'
 import { logger } from '../../../../src/lib/logger'
 import { withAPIRateLimit, RATE_LIMITS } from '../../../../src/lib/rate-limit'
 import { withCSRFProtection } from '../../../../src/lib/csrf'
@@ -50,60 +50,74 @@ async function getInventory(req: NextApiRequest, res: NextApiResponse) {
     const skip = (pageNum - 1) * limitNum
     const showLowStock = lowStock === 'true'
 
-    const where: any = {}
+    // Build Supabase query
+    let query = supabaseAdmin
+      .from('Inventory')
+      .select(`
+        *,
+        product:Product(
+          *,
+          ageGroup:AgeGroup(*),
+          texture:Texture(*)
+        ),
+        portionSize:PortionSize(*)
+      `)
+      .order('currentStock', { ascending: true })
+      .order('product.name', { ascending: true })
+      .range(skip, skip + limitNum - 1)
+
     if (showLowStock) {
-      where.currentStock = {
-        lte: 10 // Show items with stock <= 10
-      }
+      query = query.lte('currentStock', 10)
     }
 
-    const [inventory, totalCount] = await Promise.all([
-      prisma.inventory.findMany({
-        where,
-        include: {
-          product: {
-            include: {
-              ageGroup: true,
-              texture: true
-            }
-          },
-          portionSize: true
-        },
-        orderBy: [
-          { currentStock: 'asc' }, // Low stock first
-          { product: { name: 'asc' } }
-        ],
-        skip,
-        take: limitNum
-      }),
-      prisma.inventory.count({ where })
-    ])
+    const { data: inventory, error: inventoryError } = await query
+
+    if (inventoryError) {
+      throw new Error(`Failed to fetch inventory: ${inventoryError.message}`)
+    }
+
+    // Get total count
+    let countQuery = supabaseAdmin
+      .from('Inventory')
+      .select('*', { count: 'exact', head: true })
+
+    if (showLowStock) {
+      countQuery = countQuery.lte('currentStock', 10)
+    }
+
+    const { count: totalCount, error: countError } = await countQuery
+
+    if (countError) {
+      throw new Error(`Failed to count inventory: ${countError.message}`)
+    }
 
     // Calculate low stock alerts
-    const lowStockItems = await prisma.inventory.count({
-      where: {
-        currentStock: {
-          lte: 10
-        }
-      }
-    })
+    const { count: lowStockItems, error: lowStockError } = await supabaseAdmin
+      .from('Inventory')
+      .select('*', { count: 'exact', head: true })
+      .lte('currentStock', 10)
 
-    const outOfStockItems = await prisma.inventory.count({
-      where: {
-        currentStock: {
-          lte: 0
-        }
-      }
-    })
+    if (lowStockError) {
+      throw new Error(`Failed to count low stock items: ${lowStockError.message}`)
+    }
 
-    const transformedInventory = inventory.map(item => ({
+    const { count: outOfStockItems, error: outOfStockError } = await supabaseAdmin
+      .from('Inventory')
+      .select('*', { count: 'exact', head: true })
+      .lte('currentStock', 0)
+
+    if (outOfStockError) {
+      throw new Error(`Failed to count out of stock items: ${outOfStockError.message}`)
+    }
+
+    const transformedInventory = (inventory || []).map(item => ({
       id: item.id,
       product: {
         id: item.product.id,
         name: item.product.name,
         slug: item.product.slug,
-        ageGroup: item.product.ageGroup.name,
-        texture: item.product.texture.name
+        ageGroup: item.product.ageGroup?.name || '',
+        texture: item.product.texture?.name || ''
       },
       portionSize: {
         id: item.portionSize.id,
@@ -121,30 +135,30 @@ async function getInventory(req: NextApiRequest, res: NextApiResponse) {
                    item.currentStock <= 10 ? 'LOW_STOCK' : 'IN_STOCK'
     }))
 
-    const totalPages = Math.ceil(totalCount / limitNum)
+    const totalPages = Math.ceil((totalCount || 0) / limitNum)
     const hasNextPage = pageNum < totalPages
     const hasPrevPage = pageNum > 1
 
     logger.info('Inventory retrieved', { 
       count: transformedInventory.length, 
-      totalCount,
-      lowStockItems,
-      outOfStockItems,
+      totalCount: totalCount || 0,
+      lowStockItems: lowStockItems || 0,
+      outOfStockItems: outOfStockItems || 0,
       page: pageNum 
     })
 
     res.status(200).json({
       inventory: transformedInventory,
       summary: {
-        totalItems: totalCount,
-        lowStockItems,
-        outOfStockItems,
-        inStockItems: totalCount - lowStockItems
+        totalItems: totalCount || 0,
+        lowStockItems: lowStockItems || 0,
+        outOfStockItems: outOfStockItems || 0,
+        inStockItems: (totalCount || 0) - (lowStockItems || 0)
       },
       pagination: {
         page: pageNum,
         limit: limitNum,
-        totalCount,
+        totalCount: totalCount || 0,
         totalPages,
         hasNextPage,
         hasPrevPage
@@ -168,46 +182,81 @@ async function updateInventory(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // Verify product exists
-    const product = await prisma.product.findUnique({
-      where: { id: productId }
-    })
+    const { data: product, error: productError } = await supabaseAdmin
+      .from('Product')
+      .select('id')
+      .eq('id', productId)
+      .single()
 
-    if (!product) {
+    if (productError || !product) {
       return res.status(404).json({ error: 'Product not found' })
     }
 
-    // Update or create inventory record
-    const inventory = await prisma.inventory.upsert({
-      where: {
-        productId_portionSizeId: {
+    // Check if inventory record exists
+    const { data: existingInventory, error: existingError } = await supabaseAdmin
+      .from('Inventory')
+      .select('*')
+      .eq('productId', productId)
+      .eq('portionSizeId', portionSizeId)
+      .single()
+
+    let inventory
+    if (existingError && existingError.code === 'PGRST116') {
+      // Create new inventory record
+      const { data: newInventory, error: createError } = await supabaseAdmin
+        .from('Inventory')
+        .insert([{
           productId,
-          portionSizeId
-        }
-      },
-      update: {
-        currentStock: parseInt(currentStock),
-        weeklyLimit: weeklyLimit ? parseInt(weeklyLimit) : undefined,
-        lastRestocked: new Date(),
-        updatedAt: new Date()
-      },
-      create: {
-        productId,
-        portionSizeId,
-        currentStock: parseInt(currentStock),
-        weeklyLimit: weeklyLimit ? parseInt(weeklyLimit) : 0,
-        reservedStock: 0,
-        lastRestocked: new Date()
-      },
-      include: {
-        product: {
-          include: {
-            ageGroup: true,
-            texture: true
-          }
-        },
-        portionSize: true
+          portionSizeId,
+          currentStock: parseInt(currentStock),
+          weeklyLimit: weeklyLimit ? parseInt(weeklyLimit) : 0,
+          reservedStock: 0,
+          lastRestocked: new Date().toISOString()
+        }])
+        .select(`
+          *,
+          product:Product(
+            *,
+            ageGroup:AgeGroup(*),
+            texture:Texture(*)
+          ),
+          portionSize:PortionSize(*)
+        `)
+        .single()
+
+      if (createError) {
+        throw new Error(`Failed to create inventory: ${createError.message}`)
       }
-    })
+      inventory = newInventory
+    } else if (existingError) {
+      throw new Error(`Failed to check existing inventory: ${existingError.message}`)
+    } else {
+      // Update existing inventory record
+      const { data: updatedInventory, error: updateError } = await supabaseAdmin
+        .from('Inventory')
+        .update({
+          currentStock: parseInt(currentStock),
+          weeklyLimit: weeklyLimit ? parseInt(weeklyLimit) : existingInventory.weeklyLimit,
+          lastRestocked: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        })
+        .eq('id', existingInventory.id)
+        .select(`
+          *,
+          product:Product(
+            *,
+            ageGroup:AgeGroup(*),
+            texture:Texture(*)
+          ),
+          portionSize:PortionSize(*)
+        `)
+        .single()
+
+      if (updateError) {
+        throw new Error(`Failed to update inventory: ${updateError.message}`)
+      }
+      inventory = updatedInventory
+    }
 
     logger.info('Inventory updated', {
       productId,
@@ -223,8 +272,8 @@ async function updateInventory(req: NextApiRequest, res: NextApiResponse) {
         product: {
           id: inventory.product.id,
           name: inventory.product.name,
-          ageGroup: inventory.product.ageGroup.name,
-          texture: inventory.product.texture.name
+          ageGroup: inventory.product.ageGroup?.name || '',
+          texture: inventory.product.texture?.name || ''
         },
         portionSize: {
           id: inventory.portionSize.id,
@@ -272,28 +321,55 @@ async function bulkUpdateInventory(req: NextApiRequest, res: NextApiResponse) {
       }
 
       try {
-        const inventory = await prisma.inventory.upsert({
-          where: {
-            productId_portionSizeId: {
+        // Check if inventory record exists
+        const { data: existingInventory, error: existingError } = await supabaseAdmin
+          .from('Inventory')
+          .select('*')
+          .eq('productId', productId)
+          .eq('portionSizeId', portionSizeId)
+          .single()
+
+        let inventory
+        if (existingError && existingError.code === 'PGRST116') {
+          // Create new inventory record
+          const { data: newInventory, error: createError } = await supabaseAdmin
+            .from('Inventory')
+            .insert([{
               productId,
-              portionSizeId
-            }
-          },
-          update: {
-            currentStock: parseInt(currentStock),
-            weeklyLimit: weeklyLimit ? parseInt(weeklyLimit) : undefined,
-            lastRestocked: new Date(),
-            updatedAt: new Date()
-          },
-          create: {
-            productId,
-            portionSizeId,
-            currentStock: parseInt(currentStock),
-            weeklyLimit: weeklyLimit ? parseInt(weeklyLimit) : 0,
-            reservedStock: 0,
-            lastRestocked: new Date()
+              portionSizeId,
+              currentStock: parseInt(currentStock),
+              weeklyLimit: weeklyLimit ? parseInt(weeklyLimit) : 0,
+              reservedStock: 0,
+              lastRestocked: new Date().toISOString()
+            }])
+            .select()
+            .single()
+
+          if (createError) {
+            throw new Error(`Failed to create inventory: ${createError.message}`)
           }
-        })
+          inventory = newInventory
+        } else if (existingError) {
+          throw new Error(`Failed to check existing inventory: ${existingError.message}`)
+        } else {
+          // Update existing inventory record
+          const { data: updatedInventory, error: updateError } = await supabaseAdmin
+            .from('Inventory')
+            .update({
+              currentStock: parseInt(currentStock),
+              weeklyLimit: weeklyLimit ? parseInt(weeklyLimit) : existingInventory.weeklyLimit,
+              lastRestocked: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            })
+            .eq('id', existingInventory.id)
+            .select()
+            .single()
+
+          if (updateError) {
+            throw new Error(`Failed to update inventory: ${updateError.message}`)
+          }
+          inventory = updatedInventory
+        }
 
         results.push({
           productId,

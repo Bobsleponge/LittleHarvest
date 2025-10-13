@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../../src/lib/auth'
-import { prisma } from '../../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../../src/lib/supabaseClient'
 import { logger } from '../../../../src/lib/logger'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -27,26 +27,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         where.severity = severity
       }
 
-      const alerts = await prisma.securityAlert.findMany({
-        where,
-        orderBy: { createdAt: 'desc' }
-      })
+      const alerts = await supabaseAdmin
+        .from('SecurityAlert')
+        .select('*')
+        .order('createdAt', { ascending: false })
 
-      return res.status(200).json({ alerts })
+      return res.status(200).json({ alerts: alerts.data || [] })
     }
 
     if (req.method === 'POST') {
       const { type, title, description, severity, metadata } = req.body
 
-      const alert = await prisma.securityAlert.create({
-        data: {
+      const { data: alert, error } = await supabaseAdmin
+        .from('SecurityAlert')
+        .insert([{
           type,
           title,
           description,
           severity,
           metadata: metadata ? JSON.stringify(metadata) : null
-        }
-      })
+        }])
+        .select()
+        .single()
+
+      if (error) {
+        throw new Error(`Failed to create alert: ${error.message}`)
+      }
 
       logger.warn('Security alert created', { 
         alertId: alert.id, 

@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../src/lib/auth'
-import { prisma } from '../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../src/lib/supabaseClient'
 import { logger } from '../../../src/lib/logger'
 import { withAPIRateLimit, RATE_LIMITS } from '../../../src/lib/rate-limit'
 
@@ -55,36 +55,43 @@ async function getProduct(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // Fetch product with its relationships
-    const product = await prisma.product.findUnique({
-      where: { 
-        id: id,
-        isActive: true 
-      },
-      include: {
-        ageGroup: true,
-        texture: true,
-        prices: {
-          where: { isActive: true },
-          include: { portionSize: true }
-        }
-      }
-    })
+    const { data: product, error: productError } = await supabaseAdmin
+      .from('Product')
+      .select(`
+        *,
+        ageGroup:AgeGroup(*),
+        texture:Texture(*),
+        prices:Price(
+          *,
+          portionSize:PortionSize(*)
+        )
+      `)
+      .eq('id', id)
+      .eq('isActive', true)
+      .single()
+
+    if (productError && productError.code !== 'PGRST116') {
+      throw new Error(`Failed to fetch product: ${productError.message}`)
+    }
 
     if (!product) {
       return res.status(404).json({ error: 'Product not found' })
     }
+
+    // Filter active prices
+    const activePrices = product.prices?.filter((p: any) => p.isActive) || []
 
     // Transform the data to match frontend expectations
     const transformedProduct = {
       id: product.id,
       name: product.name,
       description: product.description || '',
-      price: product.prices[0]?.amountZar || 0,
+      price: activePrices[0]?.amountZar || 0,
       image: '🍎', // Default emoji, can be enhanced later
       imageUrl: product.imageUrl || '',
       ageGroup: product.ageGroup?.name || '',
       texture: product.texture?.name || '',
-      ingredients: product.contains ? product.contains.split(',').map(i => i.trim()) : [],
+      ingredients: product.contains ? product.contains.split(',').map((i: string) => i.trim()) : [],
       stock: 25, // Mock stock for now, can be enhanced with inventory
       category: 'Baby Food' // Default category, can be enhanced later
     }
