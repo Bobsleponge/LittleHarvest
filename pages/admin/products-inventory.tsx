@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/router'
 import AdminLayout from '../../components/admin/admin-layout'
+import ErrorBoundary from '../../src/components/ErrorBoundary'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { useSession } from 'next-auth/react'
 
@@ -107,6 +109,7 @@ interface ProductFormData {
 
 export default function AdminProductsInventoryPage() {
   const { data: session, status } = useSession()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<'products' | 'inventory'>('products')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -115,6 +118,14 @@ export default function AdminProductsInventoryPage() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
   
   const [products, setProducts] = useState<Product[]>([])
+
+  // Redirect if not admin
+  useEffect(() => {
+    if (status === 'loading') return
+    if (!session || session.user?.role !== 'ADMIN') {
+      router.push('/admin')
+    }
+  }, [session, status, router])
 
   // Fetch products and ingredients from database
   useEffect(() => {
@@ -299,7 +310,70 @@ export default function AdminProductsInventoryPage() {
     return 'in-stock'
   }
 
+  // Input validation functions
+  const validateProduct = (data: ProductFormData) => {
+    const errors: string[] = []
+    
+    if (!data.name || data.name.trim().length < 2) {
+      errors.push('Product name must be at least 2 characters')
+    }
+    
+    if (data.price <= 0) {
+      errors.push('Price must be greater than 0')
+    }
+    
+    if (data.stock < 0) {
+      errors.push('Stock cannot be negative')
+    }
+    
+    if (data.minStock < 0) {
+      errors.push('Minimum stock cannot be negative')
+    }
+    
+    if (data.maxStock < data.minStock) {
+      errors.push('Maximum stock must be greater than minimum stock')
+    }
+    
+    if (data.unitCost < 0) {
+      errors.push('Unit cost cannot be negative')
+    }
+    
+    return errors
+  }
+
+  const validateIngredient = (data: any) => {
+    const errors: string[] = []
+    
+    if (!data.name || data.name.trim().length < 2) {
+      errors.push('Ingredient name must be at least 2 characters')
+    }
+    
+    if (data.currentStock < 0) {
+      errors.push('Current stock cannot be negative')
+    }
+    
+    if (data.minStock < 0) {
+      errors.push('Minimum stock cannot be negative')
+    }
+    
+    if (data.maxStock < data.minStock) {
+      errors.push('Maximum stock must be greater than minimum stock')
+    }
+    
+    if (data.unitCost < 0) {
+      errors.push('Unit cost cannot be negative')
+    }
+    
+    return errors
+  }
+
   const handleAddProduct = () => {
+    const validationErrors = validateProduct(formData)
+    if (validationErrors.length > 0) {
+      alert('Validation errors:\n' + validationErrors.join('\n'))
+      return
+    }
+
     const newProduct: Product = {
       id: (products.length + 1).toString(),
       ...formData,
@@ -340,6 +414,12 @@ export default function AdminProductsInventoryPage() {
 
   const handleUpdateProduct = () => {
     if (!editingProduct) return
+    
+    const validationErrors = validateProduct(formData)
+    if (validationErrors.length > 0) {
+      alert('Validation errors:\n' + validationErrors.join('\n'))
+      return
+    }
     
     const updatedProducts = products.map(product => 
       product.id === editingProduct.id 
@@ -432,7 +512,13 @@ export default function AdminProductsInventoryPage() {
 
   const handleSaveIngredient = async () => {
     try {
-    if (editingIngredient) {
+      const validationErrors = validateIngredient(ingredientFormData)
+      if (validationErrors.length > 0) {
+        alert('Validation errors:\n' + validationErrors.join('\n'))
+        return
+      }
+
+      if (editingIngredient) {
       // Update existing ingredient
         const response = await fetch('/api/admin/ingredients', {
           method: 'PUT',
@@ -671,19 +757,18 @@ export default function AdminProductsInventoryPage() {
   const totalIngredientValue = ingredients.reduce((sum, ingredient) => sum + (ingredient.currentStock * ingredient.unitCost), 0)
 
   // Show loading state
-  if (loading) {
+  if (status === 'loading' || loading) {
     return (
       <AdminLayout>
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-center min-h-96">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading products...</p>
-            </div>
-          </div>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-emerald-500"></div>
         </div>
       </AdminLayout>
     )
+  }
+
+  if (!session || session.user?.role !== 'ADMIN') {
+    return null
   }
 
   // Show error state
@@ -726,7 +811,8 @@ export default function AdminProductsInventoryPage() {
   }
 
   return (
-    <AdminLayout>
+    <ErrorBoundary>
+      <AdminLayout>
       <div className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <nav className="mb-6">
@@ -775,7 +861,7 @@ export default function AdminProductsInventoryPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-white rounded-lg shadow-sm border mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-8">
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex">
               <button
@@ -803,7 +889,7 @@ export default function AdminProductsInventoryPage() {
         </div>
 
         {/* Filters and Search */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <input
@@ -869,7 +955,7 @@ export default function AdminProductsInventoryPage() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">
@@ -885,7 +971,7 @@ export default function AdminProductsInventoryPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">
@@ -901,7 +987,7 @@ export default function AdminProductsInventoryPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Low Stock</p>
@@ -915,7 +1001,7 @@ export default function AdminProductsInventoryPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Out of Stock</p>
@@ -933,7 +1019,7 @@ export default function AdminProductsInventoryPage() {
         {/* Additional Stats for Inventory Tab */}
         {activeTab === 'inventory' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Ingredient Value</p>
@@ -945,7 +1031,7 @@ export default function AdminProductsInventoryPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Avg Cost per Unit</p>
@@ -964,7 +1050,7 @@ export default function AdminProductsInventoryPage() {
         {/* Additional Stats for Products Tab */}
         {activeTab === 'products' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Inventory Value</p>
@@ -976,7 +1062,7 @@ export default function AdminProductsInventoryPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Potential Revenue</p>
@@ -991,10 +1077,10 @@ export default function AdminProductsInventoryPage() {
         )}
 
         {/* Products/Ingredients Table */}
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {activeTab === 'products' ? 'Product' : 'Ingredient'}
@@ -1041,10 +1127,10 @@ export default function AdminProductsInventoryPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {activeTab === 'products' ? (
                   sortedProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-gray-50">
+                  <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="text-2xl mr-3">{product.image}</div>
@@ -1097,7 +1183,7 @@ export default function AdminProductsInventoryPage() {
                   ))
                 ) : (
                   sortedIngredients.map((ingredient) => (
-                    <tr key={ingredient.id} className="hover:bg-gray-50">
+                    <tr key={ingredient.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                         <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="text-2xl mr-3">
@@ -1196,7 +1282,7 @@ export default function AdminProductsInventoryPage() {
         {activeTab === 'inventory' && (lowStockIngredients > 0 || outOfStockIngredients > 0) && (
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
             {lowStockIngredients > 0 && (
-              <div className="bg-white rounded-lg shadow-sm border p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Low Stock Alerts</h3>
                 <div className="space-y-3">
                   {ingredients
@@ -1228,7 +1314,7 @@ export default function AdminProductsInventoryPage() {
             )}
 
             {outOfStockIngredients > 0 && (
-              <div className="bg-white rounded-lg shadow-sm border p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Out of Stock</h3>
                 <div className="space-y-3">
                   {ingredients
@@ -2145,6 +2231,7 @@ export default function AdminProductsInventoryPage() {
           </div>
         )}
       </div>
-    </AdminLayout>
+      </AdminLayout>
+    </ErrorBoundary>
   )
 }

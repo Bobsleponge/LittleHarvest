@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../src/lib/auth'
-import { prisma } from '../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../src/lib/supabaseClient'
 import { logger } from '../../../src/lib/logger'
 import { withAPIRateLimit, RATE_LIMITS } from '../../../src/lib/rate-limit'
 import { withCSRFProtection } from '../../../src/lib/csrf'
@@ -51,62 +51,79 @@ export default withAPIRateLimit(
 async function getCart(req: NextApiRequest, res: NextApiResponse, userId: string) {
   try {
     // Get or create cart
-    let cart = await prisma.cart.findUnique({
-      where: { userId },
-      include: {
-        items: {
-          include: {
-            product: {
-              include: {
-                ageGroup: true,
-                texture: true,
-                prices: {
-                  where: { isActive: true },
-                  include: { portionSize: true }
-                }
-              }
-            },
-            portionSize: true
-          }
-        }
-      }
-    })
+    let { data: cart, error: cartError } = await supabaseAdmin
+      .from('Cart')
+      .select(`
+        *,
+        items:CartItem(
+          *,
+          product:Product(
+            *,
+            ageGroup:AgeGroup(*),
+            texture:Texture(*),
+            prices:Price(
+              *,
+              portionSize:PortionSize(*)
+            )
+          ),
+          portionSize:PortionSize(*)
+        )
+      `)
+      .eq('userId', userId)
+      .single()
+
+    if (cartError && cartError.code !== 'PGRST116') {
+      throw new Error(`Failed to fetch cart: ${cartError.message}`)
+    }
 
     if (!cart) {
       // Check if user exists before creating cart
-      const user = await prisma.user.findUnique({ where: { id: userId } })
-      if (!user) {
+      const { data: user, error: userError } = await supabaseAdmin
+        .from('User')
+        .select('id')
+        .eq('id', userId)
+        .single()
+      
+      if (userError) {
         return res.status(401).json({ 
           error: 'User not found. Please log out and log in again.',
           code: 'USER_NOT_FOUND'
         })
       }
       
-      cart = await prisma.cart.create({
-        data: { userId },
-        include: {
-          items: {
-            include: {
-              product: {
-                include: {
-                  ageGroup: true,
-                  texture: true,
-                  prices: {
-                    where: { isActive: true },
-                    include: { portionSize: true }
-                  }
-                }
-              },
-              portionSize: true
-            }
-          }
-        }
-      })
+      const { data: newCart, error: createError } = await supabaseAdmin
+        .from('Cart')
+        .insert([{ userId }])
+        .select(`
+          *,
+          items:CartItem(
+            *,
+            product:Product(
+              *,
+              ageGroup:AgeGroup(*),
+              texture:Texture(*),
+              prices:Price(
+                *,
+                portionSize:PortionSize(*)
+              )
+            ),
+            portionSize:PortionSize(*)
+          )
+        `)
+        .single()
+
+      if (createError) {
+        throw new Error(`Failed to create cart: ${createError.message}`)
+      }
+      cart = newCart
     }
 
     // Transform cart items
-    const cartItems = cart.items.map(item => {
-      const price = item.product.prices.find(p => p.portionSizeId === item.portionSizeId)
+    const cartItems = (cart.items || []).map(item => {
+      // Filter active prices
+      const activePrices = item.product.prices?.filter((p: any) => p.isActive) || []
+      const price = activePrices.find(p => p.portionSizeId === item.portionSizeId) || activePrices[0]
+      
       return {
         id: item.id,
         product: {
@@ -115,8 +132,8 @@ async function getCart(req: NextApiRequest, res: NextApiResponse, userId: string
           slug: item.product.slug,
           description: item.product.description,
           imageUrl: item.product.imageUrl,
-          ageGroup: item.product.ageGroup.name,
-          texture: item.product.texture.name,
+          ageGroup: item.product.ageGroup?.name || '',
+          texture: item.product.texture?.name || '',
           contains: item.product.contains,
           mayContain: item.product.mayContain
         },
@@ -181,77 +198,111 @@ async function addToCart(req: NextApiRequest, res: NextApiResponse, userId: stri
     const cleanChildProfileId = childProfileId && childProfileId.trim() !== '' ? childProfileId : null
 
     // Query the actual product from database
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      include: {
-        prices: {
-          where: { isActive: true },
-          include: { portionSize: true }
-        }
-      }
-    })
+    const { data: product, error: productError } = await supabaseAdmin
+      .from('Product')
+      .select(`
+        *,
+        prices:Price(
+          *,
+          portionSize:PortionSize(*)
+        )
+      `)
+      .eq('id', productId)
+      .eq('isActive', true)
+      .single()
 
-    if (!product) {
+    if (productError || !product) {
       return res.status(404).json({ error: 'Product not found' })
     }
 
-    // Get the first available price/portion size
-    const availablePrice = product.prices[0]
+    // Filter active prices and get the first available price/portion size
+    const activePrices = product.prices?.filter((p: any) => p.isActive) || []
+    const availablePrice = activePrices[0]
     if (!availablePrice) {
       return res.status(400).json({ error: 'Product has no available prices' })
     }
 
     // Get or create cart
-    let cart = await prisma.cart.findUnique({ where: { userId } })
+    let { data: cart, error: cartError } = await supabaseAdmin
+      .from('Cart')
+      .select('*')
+      .eq('userId', userId)
+      .single()
+
+    if (cartError && cartError.code !== 'PGRST116') {
+      throw new Error(`Failed to fetch cart: ${cartError.message}`)
+    }
+
     if (!cart) {
       // Check if user exists before creating cart
-      const user = await prisma.user.findUnique({ where: { id: userId } })
-      if (!user) {
+      const { data: user, error: userError } = await supabaseAdmin
+        .from('User')
+        .select('id')
+        .eq('id', userId)
+        .single()
+      
+      if (userError) {
         return res.status(401).json({ 
           error: 'User not found. Please log out and log in again.',
           code: 'USER_NOT_FOUND'
         })
       }
       
-      cart = await prisma.cart.create({ data: { userId } })
+      const { data: newCart, error: createError } = await supabaseAdmin
+        .from('Cart')
+        .insert([{ userId }])
+        .select()
+        .single()
+
+      if (createError) {
+        throw new Error(`Failed to create cart: ${createError.message}`)
+      }
+      cart = newCart
     }
 
     // Check if item already exists in cart
-    const existingItem = await prisma.cartItem.findUnique({
-      where: {
-        cartId_productId_portionSizeId: {
-          cartId: cart.id,
-          productId: productId,
-          portionSizeId: availablePrice.portionSizeId
-        }
-      }
-    })
+    const { data: existingItem, error: existingItemError } = await supabaseAdmin
+      .from('CartItem')
+      .select('*')
+      .eq('cartId', cart.id)
+      .eq('productId', productId)
+      .eq('portionSizeId', availablePrice.portionSizeId)
+      .single()
+
+    if (existingItemError && existingItemError.code !== 'PGRST116') {
+      throw new Error(`Failed to check existing cart item: ${existingItemError.message}`)
+    }
 
     if (existingItem) {
       // Update quantity and other fields
-      const updatedItem = await prisma.cartItem.update({
-        where: { id: existingItem.id },
-        data: { 
+      const { data: updatedItem, error: updateError } = await supabaseAdmin
+        .from('CartItem')
+        .update({ 
           quantity: existingItem.quantity + quantity,
           notes: notes || existingItem.notes,
           childProfileId: cleanChildProfileId || existingItem.childProfileId,
           shoppingMode: shoppingMode || existingItem.shoppingMode
-        },
-        include: {
-          product: {
-            include: {
-              ageGroup: true,
-              texture: true
-            }
-          },
-          portionSize: true
-        }
-      })
+        })
+        .eq('id', existingItem.id)
+        .select(`
+          *,
+          product:Product(
+            *,
+            ageGroup:AgeGroup(*),
+            texture:Texture(*)
+          ),
+          portionSize:PortionSize(*)
+        `)
+        .single()
+
+      if (updateError) {
+        throw new Error(`Failed to update cart item: ${updateError.message}`)
+      }
 
       logger.info('Cart item updated', { 
         userId, 
         productId, 
-        portionSizeId, 
+        portionSizeId: availablePrice.portionSizeId, 
         newQuantity: updatedItem.quantity 
       })
 
@@ -266,8 +317,9 @@ async function addToCart(req: NextApiRequest, res: NextApiResponse, userId: stri
       })
     } else {
       // Add new item
-      const newItem = await prisma.cartItem.create({
-        data: {
+      const { data: newItem, error: createError } = await supabaseAdmin
+        .from('CartItem')
+        .insert([{
           cartId: cart.id,
           productId: productId,
           portionSizeId: availablePrice.portionSizeId,
@@ -275,22 +327,26 @@ async function addToCart(req: NextApiRequest, res: NextApiResponse, userId: stri
           notes: notes || null,
           childProfileId: cleanChildProfileId,
           shoppingMode: shoppingMode || 'family'
-        },
-        include: {
-          product: {
-            include: {
-              ageGroup: true,
-              texture: true
-            }
-          },
-          portionSize: true
-        }
-      })
+        }])
+        .select(`
+          *,
+          product:Product(
+            *,
+            ageGroup:AgeGroup(*),
+            texture:Texture(*)
+          ),
+          portionSize:PortionSize(*)
+        `)
+        .single()
+
+      if (createError) {
+        throw new Error(`Failed to create cart item: ${createError.message}`)
+      }
 
       logger.info('Item added to cart', { 
         userId, 
         productId, 
-        portionSizeId, 
+        portionSizeId: availablePrice.portionSizeId, 
         quantity 
       })
 
@@ -333,45 +389,62 @@ async function updateCartItem(req: NextApiRequest, res: NextApiResponse, userId:
     const { itemId, quantity } = validation.data
 
     // Get cart
-    const cart = await prisma.cart.findUnique({ where: { userId } })
-    if (!cart) {
+    const { data: cart, error: cartError } = await supabaseAdmin
+      .from('Cart')
+      .select('*')
+      .eq('userId', userId)
+      .single()
+
+    if (cartError) {
       return res.status(404).json({ error: 'Cart not found' })
     }
 
     // Verify item belongs to user's cart
-    const item = await prisma.cartItem.findFirst({
-      where: {
-        id: itemId,
-        cartId: cart.id
-      }
-    })
+    const { data: item, error: itemError } = await supabaseAdmin
+      .from('CartItem')
+      .select('*')
+      .eq('id', itemId)
+      .eq('cartId', cart.id)
+      .single()
 
-    if (!item) {
+    if (itemError) {
       return res.status(404).json({ error: 'Cart item not found' })
     }
 
     if (quantity <= 0) {
       // Remove item
-      await prisma.cartItem.delete({ where: { id: itemId } })
+      const { error: deleteError } = await supabaseAdmin
+        .from('CartItem')
+        .delete()
+        .eq('id', itemId)
+      
+      if (deleteError) {
+        throw new Error(`Failed to delete cart item: ${deleteError.message}`)
+      }
       
       logger.info('Item removed from cart', { userId, itemId })
       
       res.status(200).json({ message: 'Item removed from cart' })
     } else {
       // Update quantity
-      const updatedItem = await prisma.cartItem.update({
-        where: { id: itemId },
-        data: { quantity },
-        include: {
-          product: {
-            include: {
-              ageGroup: true,
-              texture: true
-            }
-          },
-          portionSize: true
-        }
-      })
+      const { data: updatedItem, error: updateError } = await supabaseAdmin
+        .from('CartItem')
+        .update({ quantity })
+        .eq('id', itemId)
+        .select(`
+          *,
+          product:Product(
+            *,
+            ageGroup:AgeGroup(*),
+            texture:Texture(*)
+          ),
+          portionSize:PortionSize(*)
+        `)
+        .single()
+
+      if (updateError) {
+        throw new Error(`Failed to update cart item: ${updateError.message}`)
+      }
 
       logger.info('Cart item quantity updated', { 
         userId, 
@@ -410,25 +483,37 @@ async function removeFromCart(req: NextApiRequest, res: NextApiResponse, userId:
     }
 
     // Get cart
-    const cart = await prisma.cart.findUnique({ where: { userId } })
-    if (!cart) {
+    const { data: cart, error: cartError } = await supabaseAdmin
+      .from('Cart')
+      .select('*')
+      .eq('userId', userId)
+      .single()
+
+    if (cartError) {
       return res.status(404).json({ error: 'Cart not found' })
     }
 
     // Verify item belongs to user's cart
-    const item = await prisma.cartItem.findFirst({
-      where: {
-        id: itemId,
-        cartId: cart.id
-      }
-    })
+    const { data: item, error: itemError } = await supabaseAdmin
+      .from('CartItem')
+      .select('*')
+      .eq('id', itemId)
+      .eq('cartId', cart.id)
+      .single()
 
-    if (!item) {
+    if (itemError) {
       return res.status(404).json({ error: 'Cart item not found' })
     }
 
     // Remove item
-    await prisma.cartItem.delete({ where: { id: itemId } })
+    const { error: deleteError } = await supabaseAdmin
+      .from('CartItem')
+      .delete()
+      .eq('id', itemId)
+
+    if (deleteError) {
+      throw new Error(`Failed to delete cart item: ${deleteError.message}`)
+    }
 
     logger.info('Item removed from cart', { userId, itemId })
 

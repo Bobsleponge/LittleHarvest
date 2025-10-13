@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { supabaseAdmin } from '@/lib/supabaseClient'
 import { logger } from '@/lib/logger'
 
 export interface StockReservation {
@@ -23,14 +23,16 @@ export async function checkStockAvailability(
   requestedQuantity: number
 ): Promise<StockCheckResult> {
   try {
-    const inventory = await prisma.inventory.findUnique({
-      where: {
-        productId_portionSizeId: {
-          productId,
-          portionSizeId
-        }
-      }
-    })
+    const { data: inventory, error } = await supabaseAdmin
+      .from('Inventory')
+      .select('*')
+      .eq('productId', productId)
+      .eq('portionSizeId', portionSizeId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      throw new Error(`Failed to fetch inventory: ${error.message}`)
+    }
 
     if (!inventory) {
       logger.warn('Inventory record not found', { productId, portionSizeId })

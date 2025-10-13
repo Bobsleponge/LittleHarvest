@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/router'
 import AdminLayout from '../../components/admin/admin-layout'
+import ErrorBoundary from '../../src/components/ErrorBoundary'
 import { useAdminDate } from '../../src/lib/admin-date-context'
 
 // Utility function to format dates consistently (avoiding hydration mismatch)
@@ -36,6 +39,8 @@ interface Customer {
 }
 
 export default function AdminCustomersPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const { getDateFilter } = useAdminDate()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,8 +53,16 @@ export default function AdminCustomersPage() {
         const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
         const [isEditing, setIsEditing] = useState(false)
         const [editFormData, setEditFormData] = useState<Customer | null>(null)
-        const [sortBy, setSortBy] = useState('name')
-        const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [sortBy, setSortBy] = useState('name')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+
+  // Redirect if not admin
+  useEffect(() => {
+    if (status === 'loading') return
+    if (!session || session.user?.role !== 'ADMIN') {
+      router.push('/admin')
+    }
+  }, [session, status, router])
 
   // Fetch customer data from API
   useEffect(() => {
@@ -259,17 +272,24 @@ export default function AdminCustomersPage() {
   const averageOrderValue = customers.reduce((sum, customer) => sum + customer.totalSpent, 0) / 
                            customers.reduce((sum, customer) => sum + customer.totalOrders, 0)
 
+  if (status === 'loading' || loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-emerald-500"></div>
+        </div>
+      </AdminLayout>
+    )
+  }
+
+  if (!session || session.user?.role !== 'ADMIN') {
+    return null
+  }
+
   return (
-    <AdminLayout>
+    <ErrorBoundary>
+      <AdminLayout>
       <div className="container mx-auto px-4 py-8">
-        {loading ? (
-          <div className="flex items-center justify-center min-h-96">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading customers...</p>
-            </div>
-          </div>
-        ) : (
           <>
         {/* Breadcrumb */}
         <nav className="mb-6">
@@ -337,7 +357,7 @@ export default function AdminCustomersPage() {
         )}
 
         {/* Filters and Search */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
           <div className="flex flex-col lg:flex-row gap-4">
             <div className="flex-1">
               <input
@@ -381,7 +401,7 @@ export default function AdminCustomersPage() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Customers</p>
@@ -394,7 +414,7 @@ export default function AdminCustomersPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Active Customers</p>
@@ -409,7 +429,7 @@ export default function AdminCustomersPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Revenue</p>
@@ -422,7 +442,7 @@ export default function AdminCustomersPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Avg Order Value</p>
@@ -437,10 +457,10 @@ export default function AdminCustomersPage() {
         </div>
 
         {/* Customers Table */}
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
                   <th className="px-6 py-3 text-left">
                     <input
@@ -473,9 +493,9 @@ export default function AdminCustomersPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredCustomers.map((customer) => (
-                  <tr key={customer.id} className="hover:bg-gray-50">
+                  <tr key={customer.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <input
                         type="checkbox"
@@ -574,7 +594,7 @@ export default function AdminCustomersPage() {
 
         {/* Customer Insights */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Customers</h3>
             <div className="space-y-3">
               {customers
@@ -595,7 +615,7 @@ export default function AdminCustomersPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
             <div className="space-y-3">
               {customers
@@ -859,8 +879,8 @@ export default function AdminCustomersPage() {
                 </div>
               )}
           </>
-              )}
       </div>
-    </AdminLayout>
+      </AdminLayout>
+    </ErrorBoundary>
   )
 }

@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../src/lib/auth'
-import { prisma } from '../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../src/lib/supabaseClient'
 import { logger } from '../../../src/lib/logger'
 import { withAPIRateLimit, RATE_LIMITS } from '../../../src/lib/rate-limit'
 import { withCSRFProtection } from '../../../src/lib/csrf'
@@ -48,17 +48,23 @@ export default withAPIRateLimit(
 async function getChildProfile(req: NextApiRequest, res: NextApiResponse, userId: string, childProfileId: string) {
   try {
     // Get child profile and verify ownership
-    const childProfile = await prisma.childProfile.findFirst({
-      where: {
-        id: childProfileId,
-        profile: {
+    const { data: childProfile, error: childProfileError } = await supabaseAdmin
+      .from('ChildProfile')
+      .select(`
+        *,
+        profile:Profile(
           userId
-        },
-        isActive: true
-      }
-    })
+        )
+      `)
+      .eq('id', childProfileId)
+      .eq('isActive', true)
+      .single()
 
-    if (!childProfile) {
+    if (childProfileError && childProfileError.code !== 'PGRST116') {
+      throw new Error(`Failed to fetch child profile: ${childProfileError.message}`)
+    }
+
+    if (!childProfile || childProfile.profile?.userId !== userId) {
       return res.status(404).json({ error: 'Child profile not found' })
     }
 
@@ -105,33 +111,45 @@ async function updateChildProfile(req: NextApiRequest, res: NextApiResponse, use
     const { name, dateOfBirth, gender, allergies, dietaryRequirements, foodPreferences, medicalNotes } = validation.data
 
     // Verify child profile ownership
-    const existingProfile = await prisma.childProfile.findFirst({
-      where: {
-        id: childProfileId,
-        profile: {
+    const { data: existingProfile, error: existingError } = await supabaseAdmin
+      .from('ChildProfile')
+      .select(`
+        *,
+        profile:Profile(
           userId
-        }
-      }
-    })
+        )
+      `)
+      .eq('id', childProfileId)
+      .single()
 
-    if (!existingProfile) {
+    if (existingError && existingError.code !== 'PGRST116') {
+      throw new Error(`Failed to fetch child profile: ${existingError.message}`)
+    }
+
+    if (!existingProfile || existingProfile.profile?.userId !== userId) {
       return res.status(404).json({ error: 'Child profile not found' })
     }
 
     // Update child profile
-    const updatedProfile = await prisma.childProfile.update({
-      where: { id: childProfileId },
-      data: {
+    const { data: updatedProfile, error: updateError } = await supabaseAdmin
+      .from('ChildProfile')
+      .update({
         name,
-        dateOfBirth: new Date(dateOfBirth),
+        dateOfBirth: new Date(dateOfBirth).toISOString(),
         gender,
         allergies: allergies ? JSON.stringify(allergies) : null,
         dietaryRequirements: dietaryRequirements ? JSON.stringify(dietaryRequirements) : null,
         foodPreferences: foodPreferences ? JSON.stringify(foodPreferences) : null,
         medicalNotes,
-        updatedAt: new Date()
-      }
-    })
+        updatedAt: new Date().toISOString()
+      })
+      .eq('id', childProfileId)
+      .select()
+      .single()
+
+    if (updateError) {
+      throw new Error(`Failed to update child profile: ${updateError.message}`)
+    }
 
     // Transform response
     const response = {
@@ -173,32 +191,44 @@ async function updateChildProfile(req: NextApiRequest, res: NextApiResponse, use
 async function deleteChildProfile(req: NextApiRequest, res: NextApiResponse, userId: string, childProfileId: string) {
   try {
     // Verify child profile ownership
-    const existingProfile = await prisma.childProfile.findFirst({
-      where: {
-        id: childProfileId,
-        profile: {
+    const { data: existingProfile, error: existingError } = await supabaseAdmin
+      .from('ChildProfile')
+      .select(`
+        *,
+        profile:Profile(
           userId
-        }
-      }
-    })
+        )
+      `)
+      .eq('id', childProfileId)
+      .single()
 
-    if (!existingProfile) {
+    if (existingError && existingError.code !== 'PGRST116') {
+      throw new Error(`Failed to fetch child profile: ${existingError.message}`)
+    }
+
+    if (!existingProfile || existingProfile.profile?.userId !== userId) {
       return res.status(404).json({ error: 'Child profile not found' })
     }
 
     // Soft delete by setting isActive to false
-    await prisma.childProfile.update({
-      where: { id: childProfileId },
-      data: {
+    const { data: deletedProfile, error: deleteError } = await supabaseAdmin
+      .from('ChildProfile')
+      .update({
         isActive: false,
-        updatedAt: new Date()
-      }
-    })
+        updatedAt: new Date().toISOString()
+      })
+      .eq('id', childProfileId)
+      .select()
+      .single()
+
+    if (deleteError) {
+      throw new Error(`Failed to delete child profile: ${deleteError.message}`)
+    }
 
     logger.info('Child profile deleted', { 
       userId, 
       childProfileId,
-      childName: existingProfile.name 
+      childName: deletedProfile.name 
     })
 
     res.status(200).json({ message: 'Child profile deleted successfully' })

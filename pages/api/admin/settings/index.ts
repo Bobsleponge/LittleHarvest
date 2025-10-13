@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../../src/lib/auth'
-import { prisma } from '../../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../../src/lib/supabaseClient'
 import { logger } from '../../../../src/lib/logger'
 import { validateSettings, validateBusinessHours, validateDeliveryTimeSlots, validatePaymentMethods, validateIpWhitelist } from '../../../../src/lib/settings-validation'
 import { withCSRFProtection } from '../../../../src/lib/csrf'
@@ -13,19 +13,25 @@ async function getSettings(req: NextApiRequest, res: NextApiResponse, userId: st
     
     const whereClause = category ? { category: category as string } : {}
     
-    const settings = await prisma.storeSettings.findMany({
-      where: {
-        ...whereClause,
-        isActive: true
-      },
-      orderBy: [
-        { category: 'asc' },
-        { key: 'asc' }
-      ]
-    })
+    let query = supabaseAdmin
+      .from('StoreSettings')
+      .select('*')
+      .eq('isActive', true)
+      .order('category', { ascending: true })
+      .order('key', { ascending: true })
+
+    if (category) {
+      query = query.eq('category', category as string)
+    }
+
+    const { data: settings, error } = await query
+
+    if (error) {
+      throw new Error(`Failed to fetch settings: ${error.message}`)
+    }
 
     // Transform settings into a more usable format
-    const settingsByCategory = settings.reduce((acc, setting) => {
+    const settingsByCategory = (settings || []).reduce((acc, setting) => {
       if (!acc[setting.category]) {
         acc[setting.category] = {}
       }
@@ -43,7 +49,7 @@ async function getSettings(req: NextApiRequest, res: NextApiResponse, userId: st
     logger.info('Settings retrieved', { 
       userId, 
       category: category || 'all',
-      count: settings.length 
+      count: settings?.length || 0
     })
 
     return res.status(200).json({ 
@@ -62,14 +68,14 @@ async function getSettings(req: NextApiRequest, res: NextApiResponse, userId: st
 
 async function updateSettings(req: NextApiRequest, res: NextApiResponse, userId: string) {
   try {
-    const { settings } = req.body
+    const { category, settings } = req.body
     
-    if (!settings || typeof settings !== 'object') {
-      return res.status(400).json({ error: 'Invalid settings data' })
+    if (!category || !settings || typeof settings !== 'object') {
+      return res.status(400).json({ error: 'Invalid settings data - category and settings required' })
     }
 
-    // Validate settings
-    const validationResult = validateSettings('general', settings)
+    // Validate settings based on category
+    const validationResult = validateSettings(category, settings)
     if (!validationResult.isValid) {
       return res.status(400).json({ 
         error: 'Invalid settings', 
@@ -79,39 +85,48 @@ async function updateSettings(req: NextApiRequest, res: NextApiResponse, userId:
 
     // Update settings in database
     const updatePromises = Object.entries(settings).map(async ([key, value]) => {
-      return prisma.storeSettings.upsert({
-        where: { 
-          category_key: {
-            category: 'general',
-            key: key
-          }
-        },
-        update: { 
-          value: JSON.stringify(value),
+      // Ensure rate limiting is always enabled for system category
+      const finalValue = (category === 'system' && key === 'rateLimiting') ? true : value
+      
+      return supabaseAdmin
+        .from('StoreSettings')
+        .upsert({
+          category: category,
+          key: key,
+          value: JSON.stringify(finalValue),
           updatedBy: userId,
-          updatedAt: new Date()
-        },
-        create: {
-          key,
-          category: 'general',
-          value: JSON.stringify(value),
-          isActive: true,
-          updatedBy: userId
-        }
-      })
+          updatedAt: new Date().toISOString()
+        }, {
+          onConflict: 'category,key'
+        })
+        .select()
+        .single()
     })
 
     await Promise.all(updatePromises)
 
+    // Log the change to settings history
+    await prisma.settingsHistory.create({
+      data: {
+        category: category,
+        key: 'bulk_update',
+        oldValue: null,
+        newValue: JSON.stringify(Object.keys(settings)),
+        changedBy: userId,
+        changeReason: `Updated ${Object.keys(settings).length} ${category} settings`
+      }
+    })
+
     logger.info('Settings updated', { 
       userId, 
+      category,
       keys: Object.keys(settings),
       count: Object.keys(settings).length 
     })
 
     return res.status(200).json({ 
       success: true, 
-      message: 'Settings updated successfully' 
+      message: `${category} settings updated successfully` 
     })
   } catch (error) {
     logger.error('Error updating settings', { 

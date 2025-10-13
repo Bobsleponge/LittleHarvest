@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '../../src/lib/auth'
-import { prisma } from '../../src/lib/prisma'
+import { authOptions } from '../../../src/lib/auth'
+import { supabaseAdmin } from '../../src/lib/supabaseClient'
 import { logger } from '../../src/lib/logger'
 import { withAPIRateLimit, RATE_LIMITS } from '../../src/lib/rate-limit'
 import { withCSRFProtection } from '../../src/lib/csrf'
@@ -34,12 +34,17 @@ export default withCSRFProtection(withAPIRateLimit(
     const { email } = validationResult.data
 
     // Check if user exists
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true, name: true, email: true }
-    })
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('User')
+      .select('id, name, email')
+      .eq('email', email)
+      .single()
 
     // Always return success to prevent email enumeration attacks
+    if (userError && userError.code !== 'PGRST116') {
+      throw new Error(`Failed to check user: ${userError.message}`)
+    }
+
     if (!user) {
       logger.warn('Password reset requested for non-existent email', { email })
       return res.status(200).json({ 
@@ -54,13 +59,18 @@ export default withCSRFProtection(withAPIRateLimit(
 
     // Store reset token in database (you might want to create a separate table for this)
     // For now, we'll use a simple approach with the existing user table
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
+    const { error: updateError } = await supabaseAdmin
+      .from('User')
+      .update({
         // You might want to add a resetToken field to your schema
         // For now, we'll just log it
-      }
-    })
+        updatedAt: new Date().toISOString()
+      })
+      .eq('id', user.id)
+
+    if (updateError) {
+      throw new Error(`Failed to update user: ${updateError.message}`)
+    }
 
     // Create reset link
     const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/reset-password?token=${resetToken}`

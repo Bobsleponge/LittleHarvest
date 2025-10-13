@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../../src/lib/auth'
-import { prisma } from '../../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../../src/lib/supabaseClient'
 import { logger } from '../../../../src/lib/logger'
 import { withAPIRateLimit, RATE_LIMITS } from '../../../../src/lib/rate-limit'
 
@@ -12,27 +12,21 @@ export default withAPIRateLimit(
   let session: any = null
   
   try {
-    // TEMPORARY: Allow public access for testing
-    // TODO: Re-enable authentication in production
     session = await getServerSession(req, res, authOptions)
 
-    // Skip authentication check for GET requests during development
-    if (req.method === 'GET' && process.env.NODE_ENV === 'development') {
-      // Allow public access for testing
-    } else {
-      if (!session?.user?.id) {
-        return res.status(401).json({ error: 'Authentication required' })
-      }
+    if (!session?.user?.id) {
+      return res.status(401).json({ error: 'Authentication required' })
+    }
 
-      // Check if user is admin
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { role: true }
-      })
+    // Check if user is admin
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('User')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
 
-      if (user?.role !== 'ADMIN') {
-        return res.status(403).json({ error: 'Admin access required' })
-      }
+    if (userError || user?.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Admin access required' })
     }
 
     switch (req.method) {
@@ -59,12 +53,17 @@ export default withAPIRateLimit(
 
 async function getIngredients(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const ingredients = await prisma.ingredient.findMany({
-      orderBy: { name: 'asc' }
-    })
+    const { data: ingredients, error: ingredientsError } = await supabaseAdmin
+      .from('Ingredient')
+      .select('*')
+      .order('name', { ascending: true })
+
+    if (ingredientsError) {
+      throw new Error(`Failed to fetch ingredients: ${ingredientsError.message}`)
+    }
 
     // Transform the data to match frontend expectations
-    const transformedIngredients = ingredients.map(ingredient => ({
+    const transformedIngredients = (ingredients || []).map(ingredient => ({
       id: ingredient.id,
       name: ingredient.name,
       category: ingredient.category,
@@ -75,7 +74,7 @@ async function getIngredients(req: NextApiRequest, res: NextApiResponse) {
       unitCost: ingredient.unitCost,
       supplier: ingredient.supplier,
       status: ingredient.status as 'active' | 'inactive',
-      lastRestocked: ingredient.lastRestocked.toISOString().split('T')[0],
+      lastRestocked: ingredient.lastRestocked ? ingredient.lastRestocked.split('T')[0] : '',
       notes: ingredient.notes || ''
     }))
 
@@ -115,8 +114,9 @@ async function createIngredient(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: 'Missing required fields' })
     }
 
-    const ingredient = await prisma.ingredient.create({
-      data: {
+    const { data: ingredient, error: createError } = await supabaseAdmin
+      .from('Ingredient')
+      .insert([{
         name,
         category,
         unit,
@@ -127,8 +127,13 @@ async function createIngredient(req: NextApiRequest, res: NextApiResponse) {
         supplier,
         status: status || 'active',
         notes: notes || ''
-      }
-    })
+      }])
+      .select()
+      .single()
+
+    if (createError) {
+      throw new Error(`Failed to create ingredient: ${createError.message}`)
+    }
 
     logger.info('Ingredient created', { 
       ingredientId: ingredient.id,
@@ -165,9 +170,9 @@ async function updateIngredient(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: 'Invalid ingredient ID' })
     }
 
-    const ingredient = await prisma.ingredient.update({
-      where: { id },
-      data: {
+    const { data: ingredient, error: updateError } = await supabaseAdmin
+      .from('Ingredient')
+      .update({
         name,
         category,
         unit,
@@ -178,9 +183,15 @@ async function updateIngredient(req: NextApiRequest, res: NextApiResponse) {
         supplier,
         status: status || 'active',
         notes: notes || '',
-        lastRestocked: new Date()
-      }
-    })
+        lastRestocked: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (updateError) {
+      throw new Error(`Failed to update ingredient: ${updateError.message}`)
+    }
 
     logger.info('Ingredient updated', { 
       ingredientId: ingredient.id,
@@ -205,9 +216,14 @@ async function deleteIngredient(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: 'Invalid ingredient ID' })
     }
 
-    await prisma.ingredient.delete({
-      where: { id }
-    })
+    const { error: deleteError } = await supabaseAdmin
+      .from('Ingredient')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) {
+      throw new Error(`Failed to delete ingredient: ${deleteError.message}`)
+    }
 
     logger.info('Ingredient deleted', { 
       ingredientId: id

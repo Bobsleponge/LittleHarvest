@@ -1,7 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next'
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '../../../src/lib/auth'
+import { supabaseAdmin } from '../../../src/lib/supabaseClient'
 
-// Mock customer data - in production this would come from a database
-let customers = [
+// Mock customer data - fallback if database is not available
+let mockCustomers = [
   {
     id: '1',
     name: 'Sarah Johnson',
@@ -101,25 +104,142 @@ let customers = [
   }
 ]
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method === 'GET') {
-    // Get all customers
-    res.status(200).json(customers)
-  } else if (req.method === 'POST') {
-    // Create new customer
-    const newCustomer = {
-      id: (customers.length + 1).toString(),
-      ...req.body,
-      joinDate: new Date().toISOString().split('T')[0],
-      totalOrders: 0,
-      totalSpent: 0,
-      lastOrderDate: '',
-      status: 'active'
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  try {
+    // Check authentication
+    const session = await getServerSession(req, res, authOptions)
+    if (!session || session.user?.role !== 'ADMIN') {
+      return res.status(401).json({ error: 'Unauthorized' })
     }
-    customers.push(newCustomer)
-    res.status(201).json(newCustomer)
-  } else {
-    res.setHeader('Allow', ['GET', 'POST'])
-    res.status(405).end(`Method ${req.method} Not Allowed`)
+
+    if (req.method === 'GET') {
+      try {
+        // Try to get customers from database
+        const { data: users, error } = await supabaseAdmin
+          .from('User')
+          .select(`
+            *,
+            profile:Profile(*),
+            orders:Order(
+              *,
+              items:OrderItem(*)
+            )
+          `)
+          .eq('role', 'CUSTOMER')
+          .order('createdAt', { ascending: false })
+
+        if (error) {
+          throw new Error(`Database error: ${error.message}`)
+        }
+
+        // Transform database data to match frontend interface
+        const customers = (users || []).map(user => {
+          const totalOrders = user.orders?.length || 0
+          const totalSpent = user.orders?.reduce((sum: number, order: any) => sum + (order.totalZar || 0), 0) || 0
+          const lastOrder = user.orders && user.orders.length > 0 
+            ? user.orders.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+            : null
+
+          return {
+            id: user.id,
+            name: user.name || `${user.profile?.firstName || ''} ${user.profile?.lastName || ''}`.trim() || 'Unknown Customer',
+            email: user.email,
+            phone: user.profile?.phone || '',
+            joinDate: user.createdAt.split('T')[0],
+            totalOrders,
+            totalSpent,
+            lastOrderDate: lastOrder ? lastOrder.createdAt.split('T')[0] : user.createdAt.split('T')[0],
+            status: 'active',
+            address: user.profile?.address || '',
+            city: user.profile?.city || '',
+            notes: user.profile?.notes || '',
+            preferredDeliveryTime: user.profile?.preferredDeliveryTime || '',
+            allergies: user.profile?.allergies || [],
+            children: user.profile?.children || []
+          }
+        })
+
+        res.status(200).json({ customers })
+      } catch (dbError) {
+        console.error('Database error:', dbError)
+        // Fallback to mock data if database fails
+        res.status(200).json({ customers: mockCustomers })
+      }
+    } else if (req.method === 'POST') {
+      try {
+        // Create new customer in database
+        const { name, email, phone, address, city, notes, preferredDeliveryTime, allergies, children } = req.body
+
+        const { data: user, error } = await supabaseAdmin
+          .from('User')
+          .insert([{
+            name,
+            email,
+            role: 'CUSTOMER',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }])
+          .select()
+          .single()
+
+        if (error) {
+          throw new Error(`Failed to create user: ${error.message}`)
+        }
+
+        // Create profile
+        const { data: profile, error: profileError } = await supabaseAdmin
+          .from('Profile')
+          .insert([{
+            userId: user.id,
+            firstName: name.split(' ')[0] || '',
+            lastName: name.split(' ').slice(1).join(' ') || '',
+            phone,
+            address,
+            city,
+            notes,
+            preferredDeliveryTime,
+            allergies: allergies || [],
+            children: children || [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }])
+          .select()
+          .single()
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError)
+          // User was created but profile failed - still return success
+        }
+
+        const newCustomer = {
+          id: user.id,
+          name: user.name || 'New Customer',
+          email: user.email,
+          phone: profile?.phone || '',
+          joinDate: user.createdAt.split('T')[0],
+          totalOrders: 0,
+          totalSpent: 0,
+          lastOrderDate: '',
+          status: 'active',
+          address: profile?.address || '',
+          city: profile?.city || '',
+          notes: profile?.notes || '',
+          preferredDeliveryTime: profile?.preferredDeliveryTime || '',
+          allergies: profile?.allergies || [],
+          children: profile?.children || []
+        }
+
+        res.status(201).json(newCustomer)
+      } catch (dbError) {
+        console.error('Database error:', dbError)
+        res.status(500).json({ error: 'Failed to create customer' })
+      }
+    } else {
+      res.setHeader('Allow', ['GET', 'POST'])
+      res.status(405).end(`Method ${req.method} Not Allowed`)
+    }
+  } catch (error) {
+    console.error('API error:', error)
+    res.status(500).json({ error: 'Internal server error' })
   }
 }

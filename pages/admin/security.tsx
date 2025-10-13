@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/router'
 import AdminLayout from '../../components/admin/admin-layout'
+import ErrorBoundary from '../../src/components/ErrorBoundary'
 import { 
   Shield, 
   AlertTriangle, 
@@ -591,10 +592,10 @@ export default function AdminSecurityPage() {
   // Show loading state while checking authentication
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading Security Center...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">Loading Security Center...</p>
         </div>
       </div>
     )
@@ -606,14 +607,15 @@ export default function AdminSecurityPage() {
   }
 
   return (
-    <AdminLayout>
-      <div className="container mx-auto px-4 py-8">
+    <ErrorBoundary>
+      <AdminLayout>
+        <div className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <nav className="mb-6">
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <Link href="/admin" className="hover:text-gray-800">Admin</Link>
+          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+            <Link href="/admin" className="hover:text-gray-800 dark:hover:text-gray-200">Admin</Link>
             <span>›</span>
-            <span className="text-gray-900">Security</span>
+            <span className="text-gray-900 dark:text-gray-100">Security</span>
           </div>
         </nav>
 
@@ -621,8 +623,8 @@ export default function AdminSecurityPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Security Center</h1>
-              <p className="text-gray-600">Monitor security events and manage access controls</p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Security Center</h1>
+              <p className="text-gray-600 dark:text-gray-400">Monitor security events and manage access controls</p>
             </div>
             <div className="flex space-x-3">
               <Link
@@ -635,7 +637,8 @@ export default function AdminSecurityPage() {
               <button 
                 onClick={() => activeTab === 'overview' ? fetchSecurityData() : fetchEngineData(false)}
                 disabled={refreshing || engineLoading}
-                className="flex items-center space-x-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+                aria-label={refreshing || engineLoading ? "Refreshing data..." : "Refresh security data"}
+                className="flex items-center space-x-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
               >
                 <RefreshCw className={`h-4 w-4 ${(refreshing || engineLoading) ? 'animate-spin' : ''}`} />
                 <span>Refresh</span>
@@ -644,13 +647,15 @@ export default function AdminSecurityPage() {
                 <>
                   <button 
                     onClick={handleExportLogs}
-                    className="flex items-center space-x-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                    aria-label="Export security logs to CSV file"
+                    className="flex items-center space-x-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
                     <Download className="h-4 w-4" />
                     <span>Export Logs</span>
                   </button>
                   <button 
                     onClick={() => setShowBlockedIPs(true)}
+                    aria-label="Open IP blocking form"
                     className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors"
                   >
                     <Ban className="h-4 w-4" />
@@ -662,14 +667,16 @@ export default function AdminSecurityPage() {
           </div>
 
           {/* Tab Navigation */}
-          <div className="border-b border-gray-200">
+          <div className="border-b border-gray-200 dark:border-gray-700">
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('overview')}
+                aria-pressed={activeTab === 'overview'}
+                aria-label="Switch to Security Overview tab"
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'overview'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
                 <div className="flex items-center space-x-2">
@@ -679,10 +686,12 @@ export default function AdminSecurityPage() {
               </button>
               <button
                 onClick={() => setActiveTab('engine-monitor')}
+                aria-pressed={activeTab === 'engine-monitor'}
+                aria-label="Switch to Engine Monitor tab"
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'engine-monitor'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
                 <div className="flex items-center space-x-2">
@@ -730,12 +739,12 @@ export default function AdminSecurityPage() {
 
         {/* Security Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Active Sessions</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Sessions</p>
                 <p className="text-2xl font-bold text-green-600">{activeSessions.length}</p>
-                <p className="text-xs text-gray-500 mt-1">Currently online</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Currently online</p>
               </div>
               <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
                 <Users className="h-6 w-6 text-green-600" />
@@ -746,11 +755,11 @@ export default function AdminSecurityPage() {
           <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Failed Logins</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Failed Logins</p>
                 <p className="text-2xl font-bold text-red-600">
                   {securityEvents.filter(e => e.type === 'failed_login' || e.category === 'auth_error').length}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Last 24 hours</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Last 24 hours</p>
               </div>
               <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center">
                 <AlertTriangle className="h-6 w-6 text-red-600" />
@@ -761,9 +770,9 @@ export default function AdminSecurityPage() {
           <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Security Events</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Security Events</p>
                 <p className="text-2xl font-bold text-blue-600">{securityEvents.length}</p>
-                <p className="text-xs text-gray-500 mt-1">Total events</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Total events</p>
               </div>
               <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
                 <Shield className="h-6 w-6 text-blue-600" />
@@ -774,11 +783,11 @@ export default function AdminSecurityPage() {
           <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Threat Level</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Threat Level</p>
                 <p className={`text-2xl font-bold ${criticalAlerts.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
                   {criticalAlerts.length > 0 ? 'High' : 'Low'}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Current status</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Current status</p>
               </div>
               <div className={`h-12 w-12 rounded-full flex items-center justify-center ${criticalAlerts.length > 0 ? 'bg-red-100' : 'bg-green-100'}`}>
                 {criticalAlerts.length > 0 ? (
@@ -1901,5 +1910,6 @@ export default function AdminSecurityPage() {
         )}
       </div>
     </AdminLayout>
+    </ErrorBoundary>
   )
 }

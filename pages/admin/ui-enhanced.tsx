@@ -1,0 +1,1189 @@
+import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/router'
+import AdminLayout from '../../components/admin/admin-layout'
+import ErrorBoundary from '../../src/components/ErrorBoundary'
+import { 
+  useUISettings, 
+  useThemeManager, 
+  useActiveTheme, 
+  useAnimationSettings,
+  useAccessibilitySettings,
+  useLayoutSettings,
+  useTypographySettings,
+  useBrandSettings,
+  useColorSettings,
+  useSocialSettings,
+  useContactSettings
+} from '../../src/lib/ui-settings-context'
+import { Button } from '../../src/components/ui/button'
+import { Input } from '../../src/components/ui/input'
+import { Label } from '../../src/components/ui/label'
+import { Textarea } from '../../src/components/ui/textarea'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../src/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../src/components/ui/tabs'
+import { Switch } from '../../src/components/ui/switch'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../src/components/ui/select'
+import { Slider } from '../../src/components/ui/slider'
+import { 
+  Palette, 
+  Type, 
+  Layout, 
+  Upload, 
+  Save, 
+  RotateCcw, 
+  Eye, 
+  Settings,
+  Globe,
+  Phone,
+  Mail,
+  MapPin,
+  Facebook,
+  Instagram,
+  Twitter,
+  Linkedin,
+  AlertCircle,
+  CheckCircle,
+  Download,
+  Upload as UploadIcon,
+  Zap,
+  Accessibility,
+  Monitor,
+  Smartphone,
+  Tablet,
+  Palette as PaletteIcon,
+  Layers,
+  Code,
+  FileText,
+  Share2,
+  BarChart3,
+  Users,
+  Clock,
+  Star,
+  Heart,
+  Sun,
+  Moon,
+  Contrast,
+  Volume2,
+  VolumeX
+} from 'lucide-react'
+
+interface UISettings {
+  brand: {
+    siteName: string
+    tagline: string
+    logoUrl: string
+    faviconUrl: string
+  }
+  colors: {
+    primary: string
+    secondary: string
+    accent: string
+    background: string
+    text: string
+    muted: string
+    success: string
+    warning: string
+    error: string
+    info: string
+  }
+  themes: {
+    light: any
+    dark: any
+    custom: any[]
+    active: string
+  }
+  typography: {
+    fontFamily: string
+    headingFont: string
+    fontSize: 'small' | 'medium' | 'large'
+    lineHeight: 'tight' | 'normal' | 'relaxed'
+  }
+  layout: {
+    headerHeight: number
+    sidebarWidth: number
+    borderRadius: 'none' | 'small' | 'medium' | 'large'
+    spacing: 'compact' | 'normal' | 'comfortable'
+  }
+  animations: {
+    transitions: boolean
+    duration: number
+    easing: 'ease' | 'ease-in' | 'ease-out' | 'ease-in-out' | 'linear'
+    reducedMotion: boolean
+  }
+  accessibility: {
+    highContrast: boolean
+    reducedMotion: boolean
+    fontSize: 'small' | 'medium' | 'large'
+    focusVisible: boolean
+  }
+  social: {
+    facebook: string
+    instagram: string
+    twitter: string
+    linkedin: string
+  }
+  contact: {
+    email: string
+    phone: string
+    address: string
+  }
+  advanced: {
+    customCSS: string
+    customJS: string
+    themePresets: any[]
+  }
+}
+
+export default function AdminUIEnhancedPage() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const { settings, loading, error, refreshSettings } = useUISettings()
+  const themeManager = useThemeManager()
+  const activeTheme = useActiveTheme()
+  const animationSettings = useAnimationSettings()
+  const accessibilitySettings = useAccessibilitySettings()
+  const layoutSettings = useLayoutSettings()
+  const typographySettings = useTypographySettings()
+
+  const [localSettings, setLocalSettings] = useState<UISettings | null>(null)
+  const [activeTab, setActiveTab] = useState('brand')
+  const [previewMode, setPreviewMode] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+
+  // Redirect if not admin
+  useEffect(() => {
+    if (status === 'loading') return
+    if (!session || session.user?.role !== 'ADMIN') {
+      router.push('/admin')
+    }
+  }, [session, status, router])
+
+  // Initialize local settings
+  useEffect(() => {
+    if (settings) {
+      setLocalSettings(settings)
+    }
+  }, [settings])
+
+  const handleSave = async () => {
+    if (!localSettings) return
+
+    setIsSaving(true)
+    setMessage(null)
+
+    try {
+      const response = await fetch('/api/admin/ui', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': 'your-csrf-token' // In production, get this from a secure source
+        },
+        body: JSON.stringify(localSettings)
+      })
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'UI settings saved successfully!' })
+        await refreshSettings()
+      } else {
+        throw new Error('Failed to save settings')
+      }
+    } catch (error) {
+      console.error('Error saving UI settings:', error)
+      setMessage({ type: 'error', text: 'Failed to save UI settings. Please try again.' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleReset = async () => {
+    if (!localSettings) return
+
+    try {
+      const response = await fetch('/api/admin/ui', {
+        method: 'DELETE',
+        headers: {
+          'X-CSRF-Token': 'your-csrf-token'
+        }
+      })
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'UI settings reset to defaults!' })
+        await refreshSettings()
+      } else {
+        throw new Error('Failed to reset settings')
+      }
+    } catch (error) {
+      console.error('Error resetting UI settings:', error)
+      setMessage({ type: 'error', text: 'Failed to reset UI settings. Please try again.' })
+    }
+  }
+
+  const updateSettings = (updates: Partial<UISettings>) => {
+    if (!localSettings) return
+    setLocalSettings({ ...localSettings, ...updates })
+  }
+
+  const updateBrandSettings = (updates: Partial<UISettings['brand']>) => {
+    if (!localSettings) return
+    setLocalSettings({
+      ...localSettings,
+      brand: { ...localSettings.brand, ...updates }
+    })
+  }
+
+  const updateColorSettings = (updates: Partial<UISettings['colors']>) => {
+    if (!localSettings) return
+    setLocalSettings({
+      ...localSettings,
+      colors: { ...localSettings.colors, ...updates }
+    })
+  }
+
+  const updateThemeSettings = (updates: Partial<UISettings['themes']>) => {
+    if (!localSettings) return
+    setLocalSettings({
+      ...localSettings,
+      themes: { ...localSettings.themes, ...updates }
+    })
+  }
+
+  const updateTypographySettings = (updates: Partial<UISettings['typography']>) => {
+    if (!localSettings) return
+    setLocalSettings({
+      ...localSettings,
+      typography: { ...localSettings.typography, ...updates }
+    })
+  }
+
+  const updateLayoutSettings = (updates: Partial<UISettings['layout']>) => {
+    if (!localSettings) return
+    setLocalSettings({
+      ...localSettings,
+      layout: { ...localSettings.layout, ...updates }
+    })
+  }
+
+  const updateAnimationSettings = (updates: Partial<UISettings['animations']>) => {
+    if (!localSettings) return
+    setLocalSettings({
+      ...localSettings,
+      animations: { ...localSettings.animations, ...updates }
+    })
+  }
+
+  const updateAccessibilitySettings = (updates: Partial<UISettings['accessibility']>) => {
+    if (!localSettings) return
+    setLocalSettings({
+      ...localSettings,
+      accessibility: { ...localSettings.accessibility, ...updates }
+    })
+  }
+
+  const updateSocialSettings = (updates: Partial<UISettings['social']>) => {
+    if (!localSettings) return
+    setLocalSettings({
+      ...localSettings,
+      social: { ...localSettings.social, ...updates }
+    })
+  }
+
+  const updateContactSettings = (updates: Partial<UISettings['contact']>) => {
+    if (!localSettings) return
+    setLocalSettings({
+      ...localSettings,
+      contact: { ...localSettings.contact, ...updates }
+    })
+  }
+
+  const updateAdvancedSettings = (updates: Partial<UISettings['advanced']>) => {
+    if (!localSettings) return
+    setLocalSettings({
+      ...localSettings,
+      advanced: { ...localSettings.advanced, ...updates }
+    })
+  }
+
+  const applyThemePreset = (preset: any) => {
+    if (!localSettings || !preset.settings) return
+    
+    const updatedSettings = { ...localSettings }
+    
+    // Apply preset settings
+    Object.keys(preset.settings).forEach(key => {
+      const presetValue = preset.settings[key as keyof typeof preset.settings]
+      if (presetValue && typeof presetValue === 'object') {
+        (updatedSettings as any)[key] = { ...(updatedSettings as any)[key], ...presetValue }
+      } else {
+        (updatedSettings as any)[key] = presetValue
+      }
+    })
+    
+    setLocalSettings(updatedSettings)
+    setMessage({ type: 'success', text: `Applied ${preset.name} theme preset!` })
+  }
+
+  const exportTheme = () => {
+    themeManager.exportTheme()
+    setMessage({ type: 'success', text: 'Theme exported successfully!' })
+  }
+
+  const importTheme = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    themeManager.importTheme(file)
+      .then((themeData: any) => {
+        setLocalSettings(themeData.settings)
+        setMessage({ type: 'success', text: 'Theme imported successfully!' })
+      })
+      .catch((error) => {
+        console.error('Error importing theme:', error)
+        setMessage({ type: 'error', text: 'Failed to import theme. Please check the file format.' })
+      })
+  }
+
+  if (status === 'loading' || loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-emerald-500"></div>
+        </div>
+      </AdminLayout>
+    )
+  }
+
+  if (!session || session.user?.role !== 'ADMIN') {
+    return null
+  }
+
+  if (!localSettings) {
+    return (
+      <AdminLayout>
+        <div className="p-6">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              Error Loading Settings
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              {error || 'Unable to load UI settings. Please refresh the page.'}
+            </p>
+          </div>
+        </div>
+      </AdminLayout>
+    )
+  }
+
+  return (
+    <ErrorBoundary>
+      <AdminLayout>
+        <div className="p-6 space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                Enhanced UI Management
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
+                Advanced theme customization and management system
+              </p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => setPreviewMode(!previewMode)}
+                className="flex items-center space-x-2"
+                aria-label="Toggle preview mode"
+              >
+                <Eye className="h-4 w-4" />
+                <span>{previewMode ? 'Exit Preview' : 'Preview'}</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleReset}
+                className="flex items-center space-x-2"
+                aria-label="Reset to defaults"
+              >
+                <RotateCcw className="h-4 w-4" />
+                <span>Reset</span>
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex items-center space-x-2"
+                aria-label="Save settings"
+              >
+                <Save className="h-4 w-4" />
+                <span>{isSaving ? 'Saving...' : 'Save'}</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Message System */}
+          {message && (
+            <div className={`p-4 rounded-lg flex items-center space-x-2 ${
+              message.type === 'success' 
+                ? 'bg-green-50 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700'
+                : 'bg-red-50 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700'
+            }`}>
+              {message.type === 'success' ? (
+                <CheckCircle className="h-5 w-5" />
+              ) : (
+                <AlertCircle className="h-5 w-5" />
+              )}
+              <span>{message.text}</span>
+            </div>
+          )}
+
+          {/* Preview Mode Banner */}
+          {previewMode && (
+            <div className="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+              <div className="flex items-center space-x-2">
+                <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <span className="text-blue-800 dark:text-blue-200 font-medium">
+                  Preview Mode Active
+                </span>
+                <span className="text-blue-600 dark:text-blue-400 text-sm">
+                  Changes are applied in real-time but not saved
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Enhanced Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <TabsList className="grid w-full grid-cols-8">
+              <TabsTrigger value="brand" className="flex items-center space-x-2">
+                <Palette className="h-4 w-4" />
+                <span>Brand</span>
+              </TabsTrigger>
+              <TabsTrigger value="themes" className="flex items-center space-x-2">
+                <Layers className="h-4 w-4" />
+                <span>Themes</span>
+              </TabsTrigger>
+              <TabsTrigger value="typography" className="flex items-center space-x-2">
+                <Type className="h-4 w-4" />
+                <span>Typography</span>
+              </TabsTrigger>
+              <TabsTrigger value="layout" className="flex items-center space-x-2">
+                <Layout className="h-4 w-4" />
+                <span>Layout</span>
+              </TabsTrigger>
+              <TabsTrigger value="animations" className="flex items-center space-x-2">
+                <Zap className="h-4 w-4" />
+                <span>Animations</span>
+              </TabsTrigger>
+              <TabsTrigger value="accessibility" className="flex items-center space-x-2">
+                <Accessibility className="h-4 w-4" />
+                <span>Accessibility</span>
+              </TabsTrigger>
+              <TabsTrigger value="social" className="flex items-center space-x-2">
+                <Globe className="h-4 w-4" />
+                <span>Social</span>
+              </TabsTrigger>
+              <TabsTrigger value="advanced" className="flex items-center space-x-2">
+                <Settings className="h-4 w-4" />
+                <span>Advanced</span>
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Brand Tab */}
+            <TabsContent value="brand" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Palette className="h-5 w-5" />
+                    <span>Brand Identity</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Configure your brand name, tagline, logo, and favicon
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="siteName">Site Name</Label>
+                      <Input
+                        id="siteName"
+                        value={localSettings.brand.siteName}
+                        onChange={(e) => updateBrandSettings({ siteName: e.target.value })}
+                        placeholder="Little Harvest"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="tagline">Tagline</Label>
+                      <Input
+                        id="tagline"
+                        value={localSettings.brand.tagline}
+                        onChange={(e) => updateBrandSettings({ tagline: e.target.value })}
+                        placeholder="Nutritious meals for little ones"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="logoUrl">Logo URL</Label>
+                      <Input
+                        id="logoUrl"
+                        value={localSettings.brand.logoUrl}
+                        onChange={(e) => updateBrandSettings({ logoUrl: e.target.value })}
+                        placeholder="https://example.com/logo.png"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="faviconUrl">Favicon URL</Label>
+                      <Input
+                        id="faviconUrl"
+                        value={localSettings.brand.faviconUrl}
+                        onChange={(e) => updateBrandSettings({ faviconUrl: e.target.value })}
+                        placeholder="https://example.com/favicon.ico"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Themes Tab */}
+            <TabsContent value="themes" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Theme Presets */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Layers className="h-5 w-5" />
+                      <span>Theme Presets</span>
+                    </CardTitle>
+                    <CardDescription>
+                      Choose from pre-designed theme presets
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {localSettings.advanced.themePresets.map((preset) => (
+                      <div key={preset.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <h4 className="font-medium">{preset.name}</h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {preset.description}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => applyThemePreset(preset)}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                {/* Theme Management */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <PaletteIcon className="h-5 w-5" />
+                      <span>Theme Management</span>
+                    </CardTitle>
+                    <CardDescription>
+                      Export, import, and manage themes
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        onClick={exportTheme}
+                        className="flex items-center space-x-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        <span>Export</span>
+                      </Button>
+                      <div className="relative">
+                        <input
+                          type="file"
+                          accept=".json"
+                          onChange={importTheme}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <Button
+                          variant="outline"
+                          className="flex items-center space-x-2"
+                        >
+                          <UploadIcon className="h-4 w-4" />
+                          <span>Import</span>
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Active Theme</Label>
+                      <Select
+                        value={localSettings.themes.active}
+                        onValueChange={(value) => updateThemeSettings({ active: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="light">Light Theme</SelectItem>
+                          <SelectItem value="dark">Dark Theme</SelectItem>
+                          {localSettings.themes.custom.map((theme) => (
+                            <SelectItem key={theme.id} value={theme.id}>
+                              {theme.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Color Customization */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Color Customization</CardTitle>
+                  <CardDescription>
+                    Customize colors for the active theme
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    {Object.entries(localSettings.colors).map(([key, value]) => (
+                      <div key={key} className="space-y-2">
+                        <Label htmlFor={key} className="capitalize">
+                          {key.replace(/([A-Z])/g, ' $1').trim()}
+                        </Label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="color"
+                            id={key}
+                            value={value}
+                            onChange={(e) => updateColorSettings({ [key]: e.target.value })}
+                            className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600"
+                          />
+                          <Input
+                            value={value}
+                            onChange={(e) => updateColorSettings({ [key]: e.target.value })}
+                            className="flex-1"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Typography Tab */}
+            <TabsContent value="typography" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Type className="h-5 w-5" />
+                    <span>Typography Settings</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Configure fonts, sizes, and text styling
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="fontFamily">Font Family</Label>
+                      <Select
+                        value={localSettings.typography.fontFamily}
+                        onValueChange={(value) => updateTypographySettings({ fontFamily: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Inter, system-ui, sans-serif">Inter</SelectItem>
+                          <SelectItem value="Roboto, sans-serif">Roboto</SelectItem>
+                          <SelectItem value="Open Sans, sans-serif">Open Sans</SelectItem>
+                          <SelectItem value="Lato, sans-serif">Lato</SelectItem>
+                          <SelectItem value="Poppins, sans-serif">Poppins</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="headingFont">Heading Font</Label>
+                      <Select
+                        value={localSettings.typography.headingFont}
+                        onValueChange={(value) => updateTypographySettings({ headingFont: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Inter, system-ui, sans-serif">Inter</SelectItem>
+                          <SelectItem value="Roboto, sans-serif">Roboto</SelectItem>
+                          <SelectItem value="Open Sans, sans-serif">Open Sans</SelectItem>
+                          <SelectItem value="Lato, sans-serif">Lato</SelectItem>
+                          <SelectItem value="Poppins, sans-serif">Poppins</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="fontSize">Font Size</Label>
+                      <Select
+                        value={localSettings.typography.fontSize}
+                        onValueChange={(value: 'small' | 'medium' | 'large') => updateTypographySettings({ fontSize: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="small">Small</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="large">Large</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="lineHeight">Line Height</Label>
+                      <Select
+                        value={localSettings.typography.lineHeight}
+                        onValueChange={(value: 'tight' | 'normal' | 'relaxed') => updateTypographySettings({ lineHeight: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="tight">Tight</SelectItem>
+                          <SelectItem value="normal">Normal</SelectItem>
+                          <SelectItem value="relaxed">Relaxed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Layout Tab */}
+            <TabsContent value="layout" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Layout className="h-5 w-5" />
+                    <span>Layout Settings</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Configure spacing, borders, and layout dimensions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="headerHeight">Header Height: {localSettings.layout.headerHeight}px</Label>
+                      <Slider
+                        value={[localSettings.layout.headerHeight]}
+                        onValueChange={([value]) => updateLayoutSettings({ headerHeight: value })}
+                        min={48}
+                        max={120}
+                        step={8}
+                        className="w-full"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="sidebarWidth">Sidebar Width: {localSettings.layout.sidebarWidth}px</Label>
+                      <Slider
+                        value={[localSettings.layout.sidebarWidth]}
+                        onValueChange={([value]) => updateLayoutSettings({ sidebarWidth: value })}
+                        min={200}
+                        max={400}
+                        step={16}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="borderRadius">Border Radius</Label>
+                      <Select
+                        value={localSettings.layout.borderRadius}
+                        onValueChange={(value: 'none' | 'small' | 'medium' | 'large') => updateLayoutSettings({ borderRadius: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="small">Small</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="large">Large</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="spacing">Spacing</Label>
+                      <Select
+                        value={localSettings.layout.spacing}
+                        onValueChange={(value: 'compact' | 'normal' | 'comfortable') => updateLayoutSettings({ spacing: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="compact">Compact</SelectItem>
+                          <SelectItem value="normal">Normal</SelectItem>
+                          <SelectItem value="comfortable">Comfortable</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Animations Tab */}
+            <TabsContent value="animations" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Zap className="h-5 w-5" />
+                    <span>Animation Settings</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Configure transitions, animations, and motion preferences
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="transitions">Enable Transitions</Label>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Enable smooth transitions between states
+                        </p>
+                      </div>
+                      <Switch
+                        id="transitions"
+                        checked={localSettings.animations.transitions}
+                        onCheckedChange={(checked) => updateAnimationSettings({ transitions: checked })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="duration">Transition Duration: {localSettings.animations.duration}ms</Label>
+                      <Slider
+                        value={[localSettings.animations.duration]}
+                        onValueChange={([value]) => updateAnimationSettings({ duration: value })}
+                        min={50}
+                        max={1000}
+                        step={50}
+                        className="w-full"
+                        disabled={!localSettings.animations.transitions}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="easing">Transition Easing</Label>
+                      <Select
+                        value={localSettings.animations.easing}
+                        onValueChange={(value: 'ease' | 'ease-in' | 'ease-out' | 'ease-in-out' | 'linear') => updateAnimationSettings({ easing: value })}
+                        disabled={!localSettings.animations.transitions}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ease">Ease</SelectItem>
+                          <SelectItem value="ease-in">Ease In</SelectItem>
+                          <SelectItem value="ease-out">Ease Out</SelectItem>
+                          <SelectItem value="ease-in-out">Ease In Out</SelectItem>
+                          <SelectItem value="linear">Linear</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="reducedMotion">Respect Reduced Motion</Label>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Disable animations for users who prefer reduced motion
+                        </p>
+                      </div>
+                      <Switch
+                        id="reducedMotion"
+                        checked={localSettings.animations.reducedMotion}
+                        onCheckedChange={(checked) => updateAnimationSettings({ reducedMotion: checked })}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Accessibility Tab */}
+            <TabsContent value="accessibility" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Accessibility className="h-5 w-5" />
+                    <span>Accessibility Settings</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Configure accessibility features and preferences
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="highContrast">High Contrast Mode</Label>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Increase contrast for better visibility
+                        </p>
+                      </div>
+                      <Switch
+                        id="highContrast"
+                        checked={localSettings.accessibility.highContrast}
+                        onCheckedChange={(checked) => updateAccessibilitySettings({ highContrast: checked })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="reducedMotion">Respect Reduced Motion</Label>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Disable animations for users who prefer reduced motion
+                        </p>
+                      </div>
+                      <Switch
+                        id="reducedMotion"
+                        checked={localSettings.accessibility.reducedMotion}
+                        onCheckedChange={(checked) => updateAccessibilitySettings({ reducedMotion: checked })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="accessibilityFontSize">Font Size</Label>
+                      <Select
+                        value={localSettings.accessibility.fontSize}
+                        onValueChange={(value: 'small' | 'medium' | 'large') => updateAccessibilitySettings({ fontSize: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="small">Small</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="large">Large</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="focusVisible">Enhanced Focus Indicators</Label>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Show enhanced focus indicators for keyboard navigation
+                        </p>
+                      </div>
+                      <Switch
+                        id="focusVisible"
+                        checked={localSettings.accessibility.focusVisible}
+                        onCheckedChange={(checked) => updateAccessibilitySettings({ focusVisible: checked })}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Social Tab */}
+            <TabsContent value="social" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Globe className="h-5 w-5" />
+                    <span>Social Media Links</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Configure your social media presence
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="facebook" className="flex items-center space-x-2">
+                        <Facebook className="h-4 w-4" />
+                        <span>Facebook</span>
+                      </Label>
+                      <Input
+                        id="facebook"
+                        value={localSettings.social.facebook}
+                        onChange={(e) => updateSocialSettings({ facebook: e.target.value })}
+                        placeholder="https://facebook.com/yourpage"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="instagram" className="flex items-center space-x-2">
+                        <Instagram className="h-4 w-4" />
+                        <span>Instagram</span>
+                      </Label>
+                      <Input
+                        id="instagram"
+                        value={localSettings.social.instagram}
+                        onChange={(e) => updateSocialSettings({ instagram: e.target.value })}
+                        placeholder="https://instagram.com/yourpage"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="twitter" className="flex items-center space-x-2">
+                        <Twitter className="h-4 w-4" />
+                        <span>Twitter</span>
+                      </Label>
+                      <Input
+                        id="twitter"
+                        value={localSettings.social.twitter}
+                        onChange={(e) => updateSocialSettings({ twitter: e.target.value })}
+                        placeholder="https://twitter.com/yourpage"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="linkedin" className="flex items-center space-x-2">
+                        <Linkedin className="h-4 w-4" />
+                        <span>LinkedIn</span>
+                      </Label>
+                      <Input
+                        id="linkedin"
+                        value={localSettings.social.linkedin}
+                        onChange={(e) => updateSocialSettings({ linkedin: e.target.value })}
+                        placeholder="https://linkedin.com/company/yourcompany"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Phone className="h-5 w-5" />
+                    <span>Contact Information</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Configure contact details
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="email" className="flex items-center space-x-2">
+                        <Mail className="h-4 w-4" />
+                        <span>Email</span>
+                      </Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={localSettings.contact.email}
+                        onChange={(e) => updateContactSettings({ email: e.target.value })}
+                        placeholder="contact@littleharvest.com"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="phone" className="flex items-center space-x-2">
+                        <Phone className="h-4 w-4" />
+                        <span>Phone</span>
+                      </Label>
+                      <Input
+                        id="phone"
+                        value={localSettings.contact.phone}
+                        onChange={(e) => updateContactSettings({ phone: e.target.value })}
+                        placeholder="+1 (555) 123-4567"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="address" className="flex items-center space-x-2">
+                      <MapPin className="h-4 w-4" />
+                      <span>Address</span>
+                    </Label>
+                    <Textarea
+                      id="address"
+                      value={localSettings.contact.address}
+                      onChange={(e) => updateContactSettings({ address: e.target.value })}
+                      placeholder="123 Main Street, City, State 12345"
+                      rows={3}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Advanced Tab */}
+            <TabsContent value="advanced" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Settings className="h-5 w-5" />
+                    <span>Advanced Settings</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Custom CSS, JavaScript, and advanced configuration
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="customCSS">Custom CSS</Label>
+                      <Textarea
+                        id="customCSS"
+                        value={localSettings.advanced.customCSS}
+                        onChange={(e) => updateAdvancedSettings({ customCSS: e.target.value })}
+                        placeholder="/* Add your custom CSS here */"
+                        rows={8}
+                        className="font-mono text-sm"
+                      />
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Add custom CSS to override default styles
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="customJS">Custom JavaScript</Label>
+                      <Textarea
+                        id="customJS"
+                        value={localSettings.advanced.customJS}
+                        onChange={(e) => updateAdvancedSettings({ customJS: e.target.value })}
+                        placeholder="// Add your custom JavaScript here"
+                        rows={6}
+                        className="font-mono text-sm"
+                      />
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Add custom JavaScript for advanced functionality
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </AdminLayout>
+    </ErrorBoundary>
+  )
+}

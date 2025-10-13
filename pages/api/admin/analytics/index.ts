@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../../src/lib/auth'
-import { prisma } from '../../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../../src/lib/supabaseClient'
 import { logger } from '../../../../src/lib/logger'
 import { withAPIRateLimit, RATE_LIMITS } from '../../../../src/lib/rate-limit'
 
@@ -19,12 +19,13 @@ export default withAPIRateLimit(
     }
 
     // Check if user is admin
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true }
-    })
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('User')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
 
-    if (user?.role !== 'ADMIN') {
+    if (userError || user?.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Admin access required' })
     }
 
@@ -76,82 +77,108 @@ async function getAnalyticsData(req: NextApiRequest, res: NextApiResponse) {
         break
     }
 
-    // Build date filter for Prisma
+    // Build date filter for Supabase
     const dateFilter = startDate && endDate ? {
-      createdAt: {
-        gte: startDate,
-        lte: endDate
-      }
-    } : {}
+      gte: startDate.toISOString(),
+      lte: endDate.toISOString()
+    } : undefined
 
     // Get basic metrics
     const [
-      totalRevenue,
-      totalOrders,
-      totalCustomers,
-      averageOrderValue
+      totalRevenueResult,
+      totalOrdersResult,
+      totalCustomersResult,
+      averageOrderValueResult
     ] = await Promise.all([
-      prisma.order.aggregate({
-        where: dateFilter,
-        _sum: { totalZar: true }
-      }),
-      prisma.order.count({ where: dateFilter }),
-      prisma.user.count({ where: { role: 'CUSTOMER', ...dateFilter } }),
-      prisma.order.aggregate({
-        where: dateFilter,
-        _avg: { totalZar: true }
-      })
+      dateFilter ?
+        supabaseAdmin.from('Order').select('totalZar')
+          .gte('createdAt', dateFilter.gte)
+          .lte('createdAt', dateFilter.lte) :
+        supabaseAdmin.from('Order').select('totalZar'),
+      dateFilter ?
+        supabaseAdmin.from('Order').select('*', { count: 'exact', head: true })
+          .gte('createdAt', dateFilter.gte)
+          .lte('createdAt', dateFilter.lte) :
+        supabaseAdmin.from('Order').select('*', { count: 'exact', head: true }),
+      dateFilter ?
+        supabaseAdmin.from('User').select('*', { count: 'exact', head: true })
+          .eq('role', 'CUSTOMER')
+          .gte('createdAt', dateFilter.gte)
+          .lte('createdAt', dateFilter.lte) :
+        supabaseAdmin.from('User').select('*', { count: 'exact', head: true })
+          .eq('role', 'CUSTOMER'),
+      dateFilter ?
+        supabaseAdmin.from('Order').select('totalZar')
+          .gte('createdAt', dateFilter.gte)
+          .lte('createdAt', dateFilter.lte) :
+        supabaseAdmin.from('Order').select('totalZar')
     ])
 
+    // Calculate totals
+    const totalRevenue = totalRevenueResult.data?.reduce((sum, order) => sum + (order.totalZar || 0), 0) || 0
+    const totalOrders = totalOrdersResult.count || 0
+    const totalCustomers = totalCustomersResult.count || 0
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
+
     // Get top products (mock for now - would need order items aggregation)
-    const topProducts = await prisma.product.findMany({
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        imageUrl: true
-      }
-    })
+    const { data: topProducts, error: topProductsError } = await supabaseAdmin
+      .from('Product')
+      .select('id, name, imageUrl')
+      .order('createdAt', { ascending: false })
+      .limit(5)
+
+    if (topProductsError) {
+      throw new Error(`Failed to fetch top products: ${topProductsError.message}`)
+    }
 
     // Get recent orders
-    const recentOrders = await prisma.order.findMany({
-      where: dateFilter,
-      take: 10,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: {
-          select: { name: true }
-        }
-      }
-    })
+    let recentOrdersQuery = supabaseAdmin
+      .from('Order')
+      .select(`
+        *,
+        user:User(name)
+      `)
+      .order('createdAt', { ascending: false })
+      .limit(10)
+
+    if (dateFilter) {
+      recentOrdersQuery = recentOrdersQuery
+        .gte('createdAt', dateFilter.gte)
+        .lte('createdAt', dateFilter.lte)
+    }
+
+    const { data: recentOrders, error: recentOrdersError } = await recentOrdersQuery
+
+    if (recentOrdersError) {
+      throw new Error(`Failed to fetch recent orders: ${recentOrdersError.message}`)
+    }
 
     // Get sales by month (mock for now - would need proper aggregation)
     const salesByMonth = [
       {
         month: new Date().toLocaleDateString('en-ZA', { month: 'short', year: 'numeric' }),
-        revenue: totalRevenue._sum.totalZar || 0,
+        revenue: totalRevenue,
         orders: totalOrders
       }
     ]
 
     const analyticsData = {
-      totalRevenue: totalRevenue._sum.totalZar || 0,
+      totalRevenue,
       totalOrders,
       totalCustomers,
-      averageOrderValue: averageOrderValue._avg.totalZar || 0,
+      averageOrderValue,
       conversionRate: 0, // Would need visitor tracking
-      topProducts: topProducts.map((product, index) => ({
+      topProducts: (topProducts || []).map((product, index) => ({
         name: product.name,
         sales: Math.floor(Math.random() * 50) + 10, // Mock sales data
         revenue: Math.floor(Math.random() * 2000) + 500, // Mock revenue
         image: product.imageUrl || '🍎'
       })),
-      recentOrders: recentOrders.map(order => ({
+      recentOrders: (recentOrders || []).map(order => ({
         id: order.id,
         customer: order.user?.name || 'Unknown Customer',
         amount: order.totalZar,
-        date: order.createdAt.toISOString().split('T')[0],
+        date: order.createdAt.split('T')[0],
         status: order.status.toLowerCase()
       })),
       salesByMonth

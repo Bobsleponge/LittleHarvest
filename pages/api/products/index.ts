@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '../../../src/lib/auth'
-import { prisma } from '../../../src/lib/prisma'
+import { supabaseAdmin } from '../../../src/lib/supabaseClient'
 import { logger } from '../../../src/lib/logger'
 import { withAPIRateLimit, RATE_LIMITS } from '../../../src/lib/rate-limit'
 
@@ -39,26 +39,31 @@ export default withAPIRateLimit(
 
 async function getProducts(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // Fetch products with their relationships
-    const products = await prisma.product.findMany({
-      where: { isActive: true },
-      include: {
-        ageGroup: true,
-        texture: true,
-        prices: {
-          where: { isActive: true },
-          include: { portionSize: true }
-        }
-      },
-      orderBy: { name: 'asc' }
-    })
+    // Fetch products with their relationships using Supabase
+    const { data: products, error } = await supabaseAdmin
+      .from('Product')
+      .select(`
+        *,
+        ageGroup:AgeGroup(*),
+        texture:Texture(*),
+        prices:Price(
+          *,
+          portionSize:PortionSize(*)
+        )
+      `)
+      .eq('isActive', true)
+      .order('name', { ascending: true })
 
-    // Transform the data to match frontend expectations
-    const transformedProducts = products.map(product => ({
+    if (error) {
+      throw new Error(`Supabase error: ${error.message}`)
+    }
+
+    // Filter active prices and transform the data to match frontend expectations
+    const transformedProducts = (products || []).map(product => ({
       id: product.id,
       name: product.name,
       description: product.description || '',
-      price: product.prices[0]?.amountZar || 0,
+      price: product.prices?.filter((p: any) => p.isActive)?.[0]?.amountZar || 0,
       image: '🍎', // Default emoji, can be enhanced later
       imageUrl: product.imageUrl || '',
       ageGroup: product.ageGroup?.name || '',
@@ -96,8 +101,9 @@ async function createProduct(req: NextApiRequest, res: NextApiResponse) {
     // Create slug from name
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
-    const product = await prisma.product.create({
-      data: {
+    const { data: product, error } = await supabaseAdmin
+      .from('Product')
+      .insert([{
         name,
         slug,
         description,
@@ -107,15 +113,21 @@ async function createProduct(req: NextApiRequest, res: NextApiResponse) {
         mayContain: mayContain || '',
         imageUrl: imageUrl || '',
         isActive: true
-      },
-      include: {
-        ageGroup: true,
-        texture: true,
-        prices: {
-          include: { portionSize: true }
-        }
-      }
-    })
+      }])
+      .select(`
+        *,
+        ageGroup:AgeGroup(*),
+        texture:Texture(*),
+        prices:Price(
+          *,
+          portionSize:PortionSize(*)
+        )
+      `)
+      .single()
+
+    if (error) {
+      throw new Error(`Failed to create product: ${error.message}`)
+    }
 
     logger.info('Product created', { 
       productId: product.id,
