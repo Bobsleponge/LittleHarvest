@@ -226,10 +226,10 @@ export async function sendDeliveryUpdateWithCheck(
           <h2>Delivery Update</h2>
           <p>Your order #${data.orderId} status has been updated to: <strong>${data.status}</strong></p>
           <p>Estimated delivery: ${data.estimatedDelivery}</p>
-          <p>Thank you for choosing Little Harvest!</p>
+          <p>Thank you for choosing Harviz & Co!</p>
         </div>
       `,
-      text: `Delivery Update - Order #${data.orderId}\n\nStatus: ${data.status}\nEstimated delivery: ${data.estimatedDelivery}\n\nThank you for choosing Little Harvest!`
+      text: `Delivery Update - Order #${data.orderId}\n\nStatus: ${data.status}\nEstimated delivery: ${data.estimatedDelivery}\n\nThank you for choosing Harviz & Co!`
     }
 
     // Determine which email service to use
@@ -279,7 +279,7 @@ export async function sendMarketingEmailWithCheck(
 
     // Generate marketing email template
     const template = {
-      subject: data.subject || 'Special Offer from Little Harvest',
+      subject: data.subject || 'Special Offer from Harviz & Co',
       html: data.html || `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Special Offer!</h2>
@@ -287,7 +287,7 @@ export async function sendMarketingEmailWithCheck(
           <p>Thank you for being a valued customer!</p>
         </div>
       `,
-      text: data.text || data.message || 'Special Offer from Little Harvest!'
+      text: data.text || data.message || 'Special Offer from Harviz & Co!'
     }
 
     // Determine which email service to use
@@ -433,7 +433,7 @@ export async function testEmailServiceWithSettings(): Promise<{ success: boolean
     }
 
     const testTemplate = {
-      subject: 'Email Service Test - Little Harvest',
+      subject: 'Email Service Test - Harviz & Co',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Email Service Test</h2>
@@ -442,7 +442,7 @@ export async function testEmailServiceWithSettings(): Promise<{ success: boolean
           <p>If you received this email, the notification system is working properly!</p>
         </div>
       `,
-      text: 'Email Service Test - Little Harvest\n\nThis is a test email to verify that the email service is working correctly.\n\nTime: ' + new Date().toLocaleString() + '\n\nIf you received this email, the notification system is working properly!'
+      text: 'Email Service Test - Harviz & Co\n\nThis is a test email to verify that the email service is working correctly.\n\nTime: ' + new Date().toLocaleString() + '\n\nIf you received this email, the notification system is working properly!'
     }
 
     // Determine which email service to use

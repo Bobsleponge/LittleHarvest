@@ -265,7 +265,7 @@ function generateEmailTemplate(options: {
         </div>
 
         <div class="footer">
-          <p><strong>Thank you for choosing Little Harvest!</strong></p>
+          <p><strong>Thank you for choosing Harviz & Co!</strong></p>
           <p>Questions? Contact us at support@littleharvest.co.za</p>
           ${footerLinks.length > 0 ? `
             <div style="margin-top: 15px;">
@@ -332,11 +332,11 @@ export interface AccountVerificationData {
  */
 export async function generateWelcomeEmail(data: WelcomeEmailData): Promise<EmailTemplate> {
   const colors = await getUISettings()
-  const subject = `Welcome to Little Harvest, ${data.customerName}!`
+  const subject = `Welcome to Harviz & Co, ${data.customerName}!`
   
   const content = `
     <div class="intro">
-      Thank you for joining Little Harvest! We're excited to partner with you in providing the best nutrition for your little ones through our premium organic baby food delivery service.
+      Thank you for joining Harviz & Co! We're excited to partner with you in providing the best nutrition for your little ones through our premium organic baby food delivery service.
     </div>
 
     <div class="benefits">
@@ -376,7 +376,7 @@ export async function generateWelcomeEmail(data: WelcomeEmailData): Promise<Emai
   `
 
   const html = generateEmailTemplate({
-    title: 'Welcome to Little Harvest!',
+    title: 'Welcome to Harviz & Co!',
     subtitle: `Hello ${data.customerName}, we're excited to have you join our family!`,
     icon: '🌱',
     colors,
@@ -389,7 +389,7 @@ export async function generateWelcomeEmail(data: WelcomeEmailData): Promise<Emai
   })
 
   const text = `
-Welcome to Little Harvest, ${data.customerName}!
+Welcome to Harviz & Co, ${data.customerName}!
 
 Thank you for signing up! We're thrilled to help you provide the best nutrition for your little ones.
 
@@ -403,7 +403,7 @@ What you can do with your account:
 
 Start shopping now: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/products
 
-Thank you for choosing Little Harvest!
+Thank you for choosing Harviz & Co!
 Questions? Contact us at support@littleharvest.co.za
   `
 
@@ -415,11 +415,11 @@ Questions? Contact us at support@littleharvest.co.za
  */
 export async function generatePasswordResetEmail(data: PasswordResetData): Promise<EmailTemplate> {
   const colors = await getUISettings()
-  const subject = `Reset Your Password - Little Harvest`
+  const subject = `Reset Your Password - Harviz & Co`
   
   const content = `
     <div class="intro">
-      We received a request to reset your password for your Little Harvest account. Click the button below to reset your password.
+      We received a request to reset your password for your Harviz & Co account. Click the button below to reset your password.
     </div>
 
     <div class="cta">
@@ -472,11 +472,11 @@ export async function generatePasswordResetEmail(data: PasswordResetData): Promi
   })
 
   const text = `
-Password Reset Request - Little Harvest
+Password Reset Request - Harviz & Co
 
 Hello ${data.customerName},
 
-We received a request to reset your password for your Little Harvest account.
+We received a request to reset your password for your Harviz & Co account.
 
 To reset your password, click the link below:
 ${data.resetLink}
@@ -491,7 +491,7 @@ Security Information:
 
 Need help? Contact us at support@littleharvest.co.za
 
-Thank you for choosing Little Harvest!
+Thank you for choosing Harviz & Co!
   `
 
   return { subject, html, text }
@@ -501,7 +501,7 @@ Thank you for choosing Little Harvest!
  * Generate account verification email template
  */
 export function generateAccountVerificationEmail(data: AccountVerificationData): EmailTemplate {
-  const subject = `Verify Your Little Harvest Account`
+  const subject = `Verify Your Harviz & Co Account`
   
   const html = `
     <!DOCTYPE html>
@@ -530,18 +530,18 @@ export function generateAccountVerificationEmail(data: AccountVerificationData):
         <div class="content">
           <div class="verification">
             <h2>Email Verification Required</h2>
-            <p>To complete your Little Harvest account setup, please verify your email address by clicking the button below.</p>
+            <p>To complete your Harviz & Co account setup, please verify your email address by clicking the button below.</p>
           </div>
 
           <div class="cta">
             <a href="${data.verificationLink}">Verify My Email</a>
           </div>
 
-          <p>Once verified, you'll have full access to all Little Harvest features including ordering, tracking, and account management.</p>
+          <p>Once verified, you'll have full access to all Harviz & Co features including ordering, tracking, and account management.</p>
         </div>
 
         <div class="footer">
-          <p>Thank you for choosing Little Harvest!</p>
+          <p>Thank you for choosing Harviz & Co!</p>
           <p>Questions? Contact us at support@littleharvest.co.za</p>
         </div>
       </div>
@@ -550,17 +550,17 @@ export function generateAccountVerificationEmail(data: AccountVerificationData):
   `
 
   const text = `
-Verify Your Account - Little Harvest
+Verify Your Account - Harviz & Co
 
 Hello ${data.customerName},
 
-To complete your Little Harvest account setup, please verify your email address by clicking the link below:
+To complete your Harviz & Co account setup, please verify your email address by clicking the link below:
 
 ${data.verificationLink}
 
-Once verified, you'll have full access to all Little Harvest features including ordering, tracking, and account management.
+Once verified, you'll have full access to all Harviz & Co features including ordering, tracking, and account management.
 
-Thank you for choosing Little Harvest!
+Thank you for choosing Harviz & Co!
 Questions? Contact us at support@littleharvest.co.za
   `
 
@@ -652,7 +652,7 @@ export async function generateOrderConfirmationEmail(data: OrderNotificationData
           <p>Please make payment within 24 hours to confirm your order.</p>
           <div style="background: white; padding: 15px; border-radius: 6px; margin: 10px 0; border: 1px solid #fca5a5;">
             <p style="margin: 3px 0;"><strong>Bank:</strong> Standard Bank</p>
-            <p style="margin: 3px 0;"><strong>Account:</strong> Little Harvest (Pty) Ltd</p>
+            <p style="margin: 3px 0;"><strong>Account:</strong> Harviz & Co (Pty) Ltd</p>
             <p style="margin: 3px 0;"><strong>Account Number:</strong> 1234567890</p>
             <p style="margin: 3px 0;"><strong>Branch Code:</strong> 051001</p>
             <p style="margin: 3px 0;"><strong>Reference:</strong> ${data.orderNumber}</p>
@@ -700,7 +700,7 @@ Please make payment within 24 hours to confirm your order.
 
 Bank Details:
 Standard Bank
-Account: Little Harvest (Pty) Ltd
+Account: Harviz & Co (Pty) Ltd
 Account Number: 1234567890
 Branch Code: 051001
 Reference: ${data.orderNumber}
@@ -713,7 +713,7 @@ ${data.address.street}
 ${data.address.city}, ${data.address.province} ${data.address.postalCode}
 ` : ''}
 
-Thank you for choosing Little Harvest!
+Thank you for choosing Harviz & Co!
 Questions? Contact us at orders@littleharvest.co.za
   `
 
@@ -765,7 +765,7 @@ export function generatePaymentConfirmationEmail(data: OrderNotificationData): E
         </div>
 
         <div class="footer">
-          <p>Thank you for choosing Little Harvest!</p>
+          <p>Thank you for choosing Harviz & Co!</p>
           <p>We'll keep you updated on your order progress.</p>
         </div>
       </div>
@@ -788,7 +788,7 @@ ${data.deliveryDate ? `- Expected Delivery: ${new Date(data.deliveryDate).toLoca
 
 Your order is now confirmed and will be prepared for delivery. We'll keep you updated on the progress.
 
-Thank you for choosing Little Harvest!
+Thank you for choosing Harviz & Co!
 Questions? Contact us at orders@littleharvest.co.za
   `
 
