@@ -91,7 +91,7 @@ const UISettingsContext = createContext<UISettingsContextType | undefined>(undef
 
 const defaultSettings: UISettings = {
   brand: {
-    siteName: 'Little Harvest',
+    siteName: 'Harviz & Co',
     tagline: 'Nutritious meals for little ones',
     logoUrl: '',
     faviconUrl: ''

@@ -1,5 +1,5 @@
 -- Create UI Settings Table for Supabase
--- This table stores UI configuration settings for the Little Harvest app
+-- This table stores UI configuration settings for the Harviz & Co app
 
 -- Create the StoreSettings table
 CREATE TABLE IF NOT EXISTS "StoreSettings" (
@@ -24,7 +24,7 @@ CREATE INDEX IF NOT EXISTS idx_store_settings_active ON "StoreSettings"("isActiv
 -- Insert default UI settings
 INSERT INTO "StoreSettings" (category, key, value, description) VALUES
 -- Brand Settings
-('ui', 'brand.siteName', '"Little Harvest"', 'The main site name displayed in the header and title'),
+('ui', 'brand.siteName', '"Harviz & Co"', 'The main site name displayed in the header and title'),
 ('ui', 'brand.tagline', '"Nutritious meals for little ones"', 'The tagline displayed under the site name'),
 ('ui', 'brand.logoUrl', '""', 'URL to the site logo image'),
 ('ui', 'brand.faviconUrl', '""', 'URL to the site favicon'),
