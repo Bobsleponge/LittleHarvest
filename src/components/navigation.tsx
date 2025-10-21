@@ -83,6 +83,18 @@ export default function Navigation({ currentPage }: NavigationProps) {
                 👶 Profiles
               </Link>
             )}
+            {session && (session.user as any)?.role === 'ADMIN' && (
+              <Link
+                href="/admin"
+                className={`px-3 py-2 rounded-lg font-medium transition-all duration-200 text-sm ${
+                  currentPage === 'admin'
+                    ? 'bg-white/20 text-white backdrop-blur-sm'
+                    : 'text-white/90 hover:text-white hover:bg-white/20'
+                }`}
+              >
+                👑 Admin
+              </Link>
+            )}
           </nav>
 
           {/* User Section & Mobile Menu Button */}
@@ -167,6 +179,19 @@ export default function Navigation({ currentPage }: NavigationProps) {
                   }`}
                 >
                   👶 Profiles
+                </Link>
+              )}
+              {session && (session.user as any)?.role === 'ADMIN' && (
+                <Link
+                  href="/admin"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    currentPage === 'admin'
+                      ? 'bg-white/20 text-white'
+                      : 'text-white/90 hover:text-white hover:bg-white/20'
+                  }`}
+                >
+                  👑 Admin
                 </Link>
               )}
             </nav>
