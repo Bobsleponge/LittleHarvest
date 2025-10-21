@@ -85,7 +85,7 @@ async function getUISettings(req: NextApiRequest, res: NextApiResponse, userId: 
     // Default UI settings if none exist
     const defaultSettings = {
       brand: {
-        siteName: 'Little Harvest',
+        siteName: 'Harviz & Co',
         tagline: 'Nutritious meals for little ones',
         logoUrl: '',
         faviconUrl: ''
