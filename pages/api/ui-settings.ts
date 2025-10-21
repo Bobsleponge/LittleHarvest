@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Return default settings if database error
       const defaultSettings = {
         brand: {
-          name: 'Little Harvest',
+          name: 'Harviz & Co',
           logo: '🌱',
           tagline: 'Nutritious meals for little ones',
           primaryColor: '#10b981',
@@ -59,7 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Default UI settings if none exist
     const defaultSettings = {
       brand: {
-        siteName: 'Little Harvest',
+        siteName: 'Harviz & Co',
         tagline: 'Nutritious meals for little ones',
         logoUrl: '',
         faviconUrl: ''
@@ -192,7 +192,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Return default settings on error
     const defaultSettings = {
       brand: {
-        siteName: 'Little Harvest',
+        siteName: 'Harviz & Co',
         tagline: 'Nutritious meals for little ones',
         logoUrl: '',
         faviconUrl: ''
