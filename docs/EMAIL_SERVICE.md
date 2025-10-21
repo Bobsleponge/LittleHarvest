@@ -1,6 +1,6 @@
-# 📧 Email Service Configuration - Little Harvest
+# 📧 Email Service Configuration - Harviz & Co
 
-This document provides comprehensive information about the email service setup for Little Harvest.
+This document provides comprehensive information about the email service setup for Harviz & Co.
 
 ## 🚀 Overview
 
@@ -29,7 +29,7 @@ EMAIL_FROM="noreply@littleharvest.co.za"
 
 # App Configuration
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
-NEXT_PUBLIC_APP_NAME="Little Harvest"
+NEXT_PUBLIC_APP_NAME="Harviz & Co"
 ```
 
 ### Email Provider Setup
