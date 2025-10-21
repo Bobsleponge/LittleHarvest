@@ -73,7 +73,7 @@ export default function UIManagement() {
   const router = useRouter()
   const [settings, setSettings] = useState<UISettings>({
     brand: {
-      siteName: 'Little Harvest',
+      siteName: 'Harviz & Co',
       tagline: 'Nutritious meals for little ones',
       logoUrl: '',
       faviconUrl: ''

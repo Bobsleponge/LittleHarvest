@@ -510,7 +510,7 @@ export default function AdminUIEnhancedPage() {
                         id="siteName"
                         value={localSettings.brand.siteName}
                         onChange={(e) => updateBrandSettings({ siteName: e.target.value })}
-                        placeholder="Little Harvest"
+                        placeholder="Harviz & Co"
                       />
                     </div>
                     <div className="space-y-2">

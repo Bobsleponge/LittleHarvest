@@ -109,7 +109,7 @@ export function AdminSidebar() {
               <span className="text-white font-bold text-sm">TT</span>
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gradient">Little Harvest</h1>
+              <h1 className="text-lg font-bold text-gradient">Harviz & Co</h1>
               <p className="text-xs text-gray-500">Admin Portal</p>
             </div>
           </div>
